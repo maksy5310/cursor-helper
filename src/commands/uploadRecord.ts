@@ -46,8 +46,6 @@ export async function uploadRecordCommand(
             // 否则显示空表单（向后兼容）
             panel.showForm('', {});
         }
-        
-        Logger.info(`Upload form panel created${composerId ? ` for session ${composerId}` : ''}`);
     } catch (error) {
         Logger.error('Failed to create upload form panel', error as Error);
         vscode.window.showErrorMessage(`创建上传表单失败: ${error instanceof Error ? error.message : String(error)}`);

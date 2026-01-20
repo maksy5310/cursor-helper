@@ -10,8 +10,6 @@ import { TokenManager } from '../utils/tokenManager';
  */
 export async function openUserCenterCommand(context: vscode.ExtensionContext): Promise<void> {
     try {
-        Logger.info('Opening user center...');
-        
         // 获取 JWT token - 使用 TokenManager 而不是 Config
         const tokenManager = new TokenManager(context);
         const token = await tokenManager.getToken();
@@ -26,11 +24,6 @@ export async function openUserCenterCommand(context: vscode.ExtensionContext): P
         const expiryDate = new Date(expiryTimestamp);
         const now = new Date();
         const isExpired = JWTParser.isExpired(token);
-        
-        Logger.info(`=== Token Expiry Check ===`);
-        Logger.info(`Token expiry: ${expiryDate.toLocaleString()} (${expiryTimestamp})`);
-        Logger.info(`Current time: ${now.toLocaleString()} (${Date.now()})`);
-        Logger.info(`Is expired: ${isExpired}`);
         
         if (isExpired) {
             Logger.warn('JWT token has expired');
@@ -50,7 +43,6 @@ export async function openUserCenterCommand(context: vscode.ExtensionContext): P
         // JWT token 使用 Base64URL 编码，在 URL 查询参数中是安全的，不需要额外编码
         const baseUrl = Config.getUserCenterUrl(context);
         const userCenterUrl = `${baseUrl}?token=${token}`;
-        Logger.info(`Opening user center: ${userCenterUrl} (with token)`);
         
         await vscode.env.openExternal(vscode.Uri.parse(userCenterUrl));
     } catch (error) {

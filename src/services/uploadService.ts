@@ -164,8 +164,6 @@ export class UploadService implements IUploadService {
         // 重试逻辑
         for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
             try {
-                Logger.info(`Uploading record (attempt ${attempt + 1}/${this.maxRetries + 1})...`);
-
                 // 使用skipAuth=true，因为我们已经手动设置了Authorization header
                 // 这样可以避免ApiClient尝试从tokenManager获取token（可能未设置或过期）
                 const response = await this.apiClient.request<UploadResponse | UploadErrorResponse>(
@@ -188,8 +186,6 @@ export class UploadService implements IUploadService {
 
                 // 成功响应
                 const uploadResponse = response.data as UploadResponse;
-                const duration = Date.now() - startTime;
-                Logger.info(`Record uploaded successfully: ${uploadResponse.data.id} (took ${duration}ms)`);
                 return uploadResponse;
 
             } catch (error) {

@@ -651,7 +651,6 @@ export class UploadFormPanel implements IUploadFormPanel {
             }
             
             await this.context.globalState.update('upload.history', history);
-            Logger.info('Upload history saved');
         } catch (error) {
             Logger.warn('Failed to save upload history', error as Error);
         }
@@ -822,15 +821,12 @@ export class UploadFormPanel implements IUploadFormPanel {
                 const session = sessionList.find(s => s.composerId === composerId);
                 if (session) {
                     title = session.name;
-                    Logger.info('Session title auto-filled from database');
                 }
             } catch (error) {
                 Logger.warn('Failed to get session title for auto-fill', error as Error);
                 // 静默失败,不影响表单显示
             }
         }
-        
-        Logger.info(`Auto-fill data: email=${email ? 'present' : 'null'}, projectName=${projectName ? 'present' : 'null'}, title=${title ? 'present' : 'null'}`);
         
         return { email, projectName, title };
     }

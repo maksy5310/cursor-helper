@@ -248,7 +248,6 @@ export class SQLiteAccess {
                     parsedData = JSON.parse(valueStr);
                     Logger.debug(`Parsed JSON successfully. Keys: ${Object.keys(parsedData).join(', ')}`);
                     if (parsedData.allComposers) {
-                        Logger.info(`Found ${parsedData.allComposers.length} composers in database`);
                         // 记录前几个 composer 的详细信息
                         if (parsedData.allComposers.length > 0) {
                             const firstComposer = parsedData.allComposers[0];
