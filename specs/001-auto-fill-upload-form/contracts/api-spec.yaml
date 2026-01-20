@@ -1,0 +1,276 @@
+openapi: 3.0.3
+info:
+  title: Spec-Share Server API (Used by Cursor Helper)
+  description: |
+    本文档定义cursor-helper插件使用的spec-share-server API端点。
+    
+    **认证方式**: JWT Bearer Token
+    
+    **工作流程**:
+    1. 用户在浏览器打开spec-share-frontend的/plugin-login页面
+    2. 前端调用POST /api/auth/plugin获取JWT
+    3. 前端通过cursor://回调将JWT传递给插件
+    4. 插件使用JWT访问其他API端点
+    
+    **注意**: 本项目不实现OAuth 2.0,使用简单的JWT认证。
+  version: 1.0.0
+  contact:
+    name: Cursor Helper Team
+
+servers:
+  - url: http://localhost:8000/api
+    description: 本地开发环境
+  - url: https://spec-share.example.com/api
+    description: 生产环境
+
+tags:
+  - name: auth
+    description: 身份认证相关接口
+  - name: users
+    description: 用户信息相关接口(未来扩展)
+
+paths:
+  /auth/plugin:
+    post:
+      tags:
+        - auth
+      summary: 插件认证登录
+      description: |
+        为cursor-helper插件提供的专用认证端点。
+        返回JWT访问令牌(不包含用户详细信息,仅返回token)。
+        
+        **使用场景**: spec-share-frontend在用户登录成功后调用此接口获取JWT,
+        然后通过cursor://回调将token传递给插件。
+      operationId: pluginAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: 用户邮箱
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  description: 用户密码
+                  example: SecurePassword123!
+      responses:
+        '200':
+          description: 认证成功,返回JWT令牌
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - access_token
+                  - token_type
+                properties:
+                  access_token:
+                    type: string
+                    description: JWT访问令牌
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  token_type:
+                    type: string
+                    description: 令牌类型
+                    enum: [bearer]
+                    example: bearer
+        '401':
+          description: 邮箱或密码错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: 邮箱或密码错误
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - auth
+      summary: 标准用户登录
+      description: |
+        标准的用户登录端点(Web前端使用)。
+        返回JWT令牌和完整的用户信息对象。
+        
+        **注意**: cursor-helper插件使用/auth/plugin端点,不直接调用此接口。
+        但插件可能需要解析从前端传来的登录响应中的用户信息。
+      operationId: userLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  schemas:
+    AuthResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - user
+      properties:
+        access_token:
+          type: string
+          description: JWT访问令牌
+        token_type:
+          type: string
+          enum: [bearer]
+        user:
+          $ref: '#/components/schemas/User'
+    
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - username
+        - role
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: 用户唯一标识
+          example: user-uuid-123
+        email:
+          type: string
+          format: email
+          description: 用户邮箱
+          example: user@example.com
+        username:
+          type: string
+          description: 用户名/昵称
+          example: 张三
+        avatar_url:
+          type: string
+          format: uri
+          nullable: true
+          description: 用户头像URL
+          example: https://example.com/avatar/user123.jpg
+        department:
+          type: string
+          nullable: true
+          description: 部门
+          example: 技术部
+        employee_id:
+          type: string
+          nullable: true
+          description: 工号
+          example: EMP001
+        role:
+          type: string
+          description: 用户角色
+          enum: [user, admin]
+          example: user
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+    
+    JWTPayload:
+      type: object
+      description: |
+        JWT令牌解码后的payload结构。
+        插件需要使用jose库解析JWT获取用户信息。
+      required:
+        - email
+        - role
+        - exp
+        - iat
+      properties:
+        email:
+          type: string
+          format: email
+          description: 用户邮箱
+          example: user@example.com
+        role:
+          type: string
+          description: 用户角色
+          enum: [user, admin]
+          example: user
+        exp:
+          type: integer
+          format: int64
+          description: 过期时间(Unix timestamp,秒)
+          example: 1705406400
+        iat:
+          type: integer
+          format: int64
+          description: 签发时间(Unix timestamp,秒)
+          example: 1705320000
+        iss:
+          type: string
+          description: 签发者(可选)
+          example: spec-share-server
+    
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: 错误详情
+          example: 邮箱或密码错误
+
+  responses:
+    UnauthorizedError:
+      description: 未授权或令牌无效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: 未授权访问
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        使用JWT令牌进行认证。
+        格式: Authorization: Bearer {jwt_token}
+
+security:
+  - BearerAuth: []

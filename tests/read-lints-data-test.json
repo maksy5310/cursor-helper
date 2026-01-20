@@ -1,0 +1,75 @@
+{
+    "description": "read_lints 工具数据测试",
+    "userProvidedData": {
+        "toolFormerData": {
+            "additionalData": {},
+            "modelCallId": "ea388ca4-8574-49f2-80d2-f8934778a797",
+            "name": "read_lints",
+            "params": "{\"paths\":[\"esphome\",\"docs\"]}",
+            "rawArgs": "{\"paths\": [\"esphome\",\"docs\"]}",
+            "result": "{}",
+            "status": "completed",
+            "tool": 30,
+            "toolCallId": "tool_74fb5c0b-e054-4919-b2ff-48f10590455",
+            "toolIndex": 8
+        }
+    },
+    "expectedExtraction": {
+        "name": "read_lints",
+        "rawArgs": "{\"paths\": [\"esphome\",\"docs\"]}",
+        "params": "{\"paths\":[\"esphome\",\"docs\"]}",
+        "result": "{}"
+    },
+    "expectedParsedData": {
+        "rawArgs": {
+            "paths": ["esphome", "docs"]
+        },
+        "params": {
+            "paths": ["esphome", "docs"]
+        },
+        "result": {}
+    },
+    "expectedMarkdown": {
+        "summary": "✅ Read Lints: No errors found for 2 path(s)",
+        "content": [
+            "**Lint paths**:",
+            "- `esphome`",
+            "- `docs`",
+            "",
+            "**Result**: ✓ No lint errors found"
+        ]
+    },
+    "possibleIssues": [
+        {
+            "issue": "bubble 对象结构不正确",
+            "check": "bubble.toolFormerData 是否存在",
+            "solution": "检查 CSV 解析逻辑，确保 toolFormerData 被正确提取"
+        },
+        {
+            "issue": "工具名称提取失败",
+            "check": "extractToolName 是否返回 'read_lints'",
+            "solution": "检查 toolFormerData.name 字段"
+        },
+        {
+            "issue": "JSON 解析失败",
+            "check": "safeParseJson 是否正确解析字符串",
+            "solution": "检查 rawArgs 和 params 是否为有效的 JSON 字符串"
+        },
+        {
+            "issue": "工具匹配失败",
+            "check": "matchesToolName 是否匹配 'read_lints'",
+            "solution": "已在 T060 中修复，确保 read_lints 在 read_file 之前匹配"
+        },
+        {
+            "issue": "内容生成为空",
+            "check": "fragments 数组是否有内容",
+            "solution": "检查 paths 数组是否正确提取"
+        },
+        {
+            "issue": "Details 块生成失败",
+            "check": "generateDetailsBlock 是否返回非空字符串",
+            "solution": "检查 content 参数是否为空"
+        }
+    ]
+}
+
