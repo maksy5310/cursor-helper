@@ -143,6 +143,24 @@ vsce package
 - `cursor-assistant.batchWriteInterval`: 批量写入间隔（毫秒，默认：10000）
 - `cursor-assistant.batchWriteThreshold`: 批量写入阈值（记录数，默认：100）
 
+### 环境配置
+
+项目使用外部 JSON 配置文件方案：
+
+- **开发环境** (`src/config.json`): 默认使用 `https://spec.pixvert.app`
+- **生产环境** (`src/config.prod.json`): 自动发布时使用 `https://spec.ak01.cn`
+- **配置类** (`src/utils/config.ts`): 自动读取配置文件
+
+```json
+// src/config.json
+{
+  "env": "development",
+  "baseUrl": "https://spec.pixvert.app"
+}
+```
+
+详见：[配置管理说明](./docs/CONFIG_MANAGEMENT.md)
+
 ## 项目结构
 
 ```

@@ -1,4 +1,14 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
+
+/**
+ * 环境配置接口
+ */
+interface EnvConfig {
+    env: string;
+    baseUrl: string;
+}
 
 /**
  * 配置管理类
@@ -6,7 +16,38 @@ import * as vscode from 'vscode';
  */
 export class Config {
     private static readonly CONFIG_SECTION = 'cursor-assistant';
-    private static readonly DEFAULT_BASE_URL = 'https://spec.pixvert.app';
+    private static envConfig: EnvConfig | null = null;
+    
+    /**
+     * 加载环境配置
+     */
+    private static loadEnvConfig(): EnvConfig {
+        if (this.envConfig) {
+            return this.envConfig;
+        }
+        
+        try {
+            // 尝试读取 config.json
+            const configPath = path.join(__dirname, '..', 'config.json');
+            const configContent = fs.readFileSync(configPath, 'utf-8');
+            const config: EnvConfig = JSON.parse(configContent);
+            this.envConfig = config;
+            return config;
+        } catch (error) {
+            // 如果读取失败，使用默认配置
+            console.warn('Failed to load config.json, using default config:', error);
+            const defaultConfig: EnvConfig = {
+                env: 'development',
+                baseUrl: 'https://spec.pixvert.app'
+            };
+            this.envConfig = defaultConfig;
+            return defaultConfig;
+        }
+    }
+    
+    private static get DEFAULT_BASE_URL(): string {
+        return this.loadEnvConfig().baseUrl;
+    }
 
     /**
      * 获取配置值
