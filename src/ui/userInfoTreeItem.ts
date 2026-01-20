@@ -68,7 +68,7 @@ export class UserInfoTreeDataProvider implements vscode.TreeDataProvider<UserInf
     refresh(profile: UserProfile | null, avatarUri?: vscode.Uri): void {
         this.currentProfile = profile;
         this.currentAvatarUri = avatarUri;
-        this._onDidChangeTreeData.fire();
+        this._onDidChangeTreeData.fire(undefined);
         Logger.info('UserInfoTreeDataProvider refreshed');
     }
 
