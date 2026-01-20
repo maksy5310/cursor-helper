@@ -1,0 +1,35 @@
+﻿# cursor-helper Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2026-01-14
+
+## Active Technologies
+- TypeScript 5.0+ (编译目标 ES2020) (001-auto-fill-upload-form)
+- TypeScript 5.0+, Node.js >=18.0.0 (005-workspace-sessions)
+- TypeScript 5.0, targeting ES2020 + VS Code Extension API ^1.74.0, Node.js >=18.0.0 (006-edit-file-v2-support)
+- N/A (reads from existing Cursor database accessed via sql.js) (006-edit-file-v2-support)
+
+- TypeScript 5.0 (Node.js >= 18.0.0) (001-auto-fill-upload-form)
+
+## Project Structure
+
+```text
+src/
+tests/
+```
+
+## Commands
+
+npm test; npm run lint
+
+## Code Style
+
+TypeScript 5.0 (Node.js >= 18.0.0): Follow standard conventions
+
+## Recent Changes
+- 006-edit-file-v2-support: Added TypeScript 5.0, targeting ES2020 + VS Code Extension API ^1.74.0, Node.js >=18.0.0
+- 005-workspace-sessions: Added TypeScript 5.0+, Node.js >=18.0.0
+- 001-auto-fill-upload-form: Added TypeScript 5.0+ (编译目标 ES2020)
+
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

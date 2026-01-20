@@ -1,0 +1,147 @@
+{
+  "name": "cursor-assistant",
+  "publisher": "howell",
+  "displayName": "Cursor助手",
+  "description": "Cursor 使用数据采集插件",
+  "version": "0.0.2",
+  "engines": {
+    "vscode": "^1.74.0",
+    "node": ">=18.0.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onUri"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cursor-assistant.discoverData",
+        "title": "Discover Cursor Data Files",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.analyzeDatabase",
+        "title": "Analyze Cursor Database",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.openSessionMarkdown",
+        "title": "Open Session Markdown",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.showLogs",
+        "title": "Show Logs",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.testToolExtraction",
+        "title": "Test Tool Extraction",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.uploadRecord",
+        "title": "上传记录",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.configureUpload",
+        "title": "配置 Base URL",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.viewUploadHistory",
+        "title": "查看上传历史",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.login",
+        "title": "登录",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.testUriHandler",
+        "title": "测试 URI Handler",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.logout",
+        "title": "退出登录",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.openUserCenter",
+        "title": "打开个人中心",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.refreshUserInfo",
+        "title": "刷新用户信息",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.showStatus",
+        "title": "显示插件状态",
+        "category": "Cursor Assistant"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cursor-assistant",
+          "title": "Cursor Assistant",
+          "icon": "$(database)"
+        }
+      ]
+    },
+    "views": {
+      "cursor-assistant": [
+        {
+          "id": "cursor-assistant.userInfo",
+          "name": "个人信息",
+          "when": "true"
+        },
+        {
+          "id": "cursor-assistant.sessionList",
+          "name": "Sessions",
+          "when": "true"
+        }
+      ]
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "cursor-assistant.logout",
+          "when": "view == cursor-assistant.userInfo && viewItem == userInfo-loggedIn",
+          "group": "inline"
+        },
+        {
+          "command": "cursor-assistant.refreshUserInfo",
+          "when": "view == cursor-assistant.userInfo && viewItem == userInfo-loggedIn"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.26",
+    "@types/sql.js": "^1.4.9",
+    "@types/vscode": "^1.74.0",
+    "@vscode/test-electron": "^2.3.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "jose": "^5.0.0",
+    "node-fetch": "^3.0.0",
+    "sql.js": "^1.13.0"
+  }
+}
