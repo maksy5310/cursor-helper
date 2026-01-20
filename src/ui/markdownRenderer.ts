@@ -753,15 +753,18 @@ export class MarkdownRenderer implements IMarkdownRenderer {
         const params = this.safeParseJson(toolData.params);
         
         // 提取文件路径（检查多个可能的字段名）
-        const filePath = params?.targetFile ||
+        const filePath = params?.relativeWorkspacePath ||
+                        params?.targetFile ||
                         params?.target_file ||
                         params?.filePath ||
                         params?.file_path ||
+                        params?.path ||
+                        rawArgs?.relativeWorkspacePath ||
+                        rawArgs?.path ||
                         rawArgs?.targetFile ||
                         rawArgs?.target_file ||
                         rawArgs?.filePath ||
                         rawArgs?.file_path || 
-                        rawArgs?.relativeWorkspacePath || 
                         'Unknown file';
         
         // 提取解释
@@ -793,9 +796,10 @@ export class MarkdownRenderer implements IMarkdownRenderer {
     }
 
     /**
-     * 渲染代码库搜索工具（codebase_search）
+     * 渲染代码库搜索工具（codebase_search, semantic_search_full）
      * T021: 处理 codebase_search 工具
      * T064: 更新数据提取逻辑,支持真实数据格式
+     * T076: 添加 semantic_search_full 支持
      * 
      * 渲染策略：
      * - Summary: 显示查询 + 结果数 + 搜索范围
@@ -821,10 +825,15 @@ export class MarkdownRenderer implements IMarkdownRenderer {
         
         // 提取搜索范围
         const targetDir = rawArgs?.target_directories?.[0] || 
+                         rawArgs?.targetDirectories?.[0] ||
                          params?.includePattern ||
                          params?.target_directories?.[0] ||
+                         params?.targetDirectories?.[0] ||
                          params?.repositoryInfo?.relativeWorkspacePath ||
                          '';
+        
+        // 提取 topK 参数（semantic_search_full 特有）
+        const topK = params?.topK || rawArgs?.topK || null;
         
         // 提取搜索结果（优先使用 result，回退到 params）
         const codeResults = result?.codeResults || 
@@ -832,8 +841,18 @@ export class MarkdownRenderer implements IMarkdownRenderer {
                            result?.results || 
                            [];
         
+        // 判断是否为语义搜索
+        const isSemanticSearch = toolData.name === 'semantic_search_full';
+        
         // 生成 summary 标题
-        let summaryTitle = `🔍 Searched codebase: "${query}" • ${codeResults.length} result(s)`;
+        let summaryTitle = isSemanticSearch
+            ? `🔍 Semantic search: "${query}" • ${codeResults.length} result(s)`
+            : `🔍 Searched codebase: "${query}" • ${codeResults.length} result(s)`;
+        
+        if (topK) {
+            summaryTitle += ` (top ${topK})`;
+        }
+        
         if (targetDir && targetDir !== '.') {
             summaryTitle += ` in ${targetDir}`;
         }
@@ -1309,6 +1328,79 @@ export class MarkdownRenderer implements IMarkdownRenderer {
     }
 
     /**
+     * 渲染列出目录工具 V2（list_dir_v2）
+     * T073: 处理 list_dir_v2 工具
+     */
+    private renderListDirV2Tool(toolData: any): string {
+        const fragments: string[] = [];
+        
+        // 安全解析 rawArgs 和 params（可能是 JSON 字符串）
+        const rawArgs = this.safeParseJson(toolData.rawArgs);
+        const params = this.safeParseJson(toolData.params);
+        const result = this.safeParseJson(toolData.result);
+        
+        // 提取目录路径（检查多个可能的字段名）
+        const dirPath = params?.targetDirectory || 
+                       params?.target_directory ||
+                       params?.path ||
+                       rawArgs?.targetDirectory ||
+                       rawArgs?.target_directory ||
+                       rawArgs?.path ||
+                       'Unknown directory';
+        
+        // 提取忽略模式（如果有）
+        const ignorePatterns = rawArgs?.ignore || [];
+        
+        // 提取文件列表（从 result 中提取目录树结构）
+        let files: any[] = [];
+        let dirs: any[] = [];
+        
+        // 尝试从 result 中提取文件列表
+        if (result && result.directoryTreeRoot) {
+            // 从目录树结构中提取文件和目录
+            const extracted = this.extractFilesAndDirsFromDirectoryTree(result.directoryTreeRoot);
+            files = extracted.files;
+            dirs = extracted.dirs;
+        }
+        
+        fragments.push(`**目录**: \`${dirPath}\``);
+        
+        // 显示忽略模式（如果有）
+        if (ignorePatterns && ignorePatterns.length > 0) {
+            fragments.push(`**忽略模式**: ${ignorePatterns.map((p: string) => `\`${p}\``).join(', ')}`);
+        }
+        
+        // 统计信息
+        const totalItems = files.length + dirs.length;
+        fragments.push(`**统计**: ${dirs.length} 个子目录, ${files.length} 个文件 (共 ${totalItems} 项)`);
+        
+        if (totalItems > 0) {
+            // 生成表格：名称 | 类型 | 路径
+            const headers = ['名称', '类型', '路径'];
+            const rows: string[][] = [];
+            
+            // 先添加目录
+            for (const dir of dirs) {
+                const name = dir.name || 'Unknown';
+                rows.push([`📁 ${name}`, '目录', dir.path || '']);
+            }
+            
+            // 再添加文件
+            for (const file of files) {
+                const name = file.name || 'Unknown';
+                rows.push([`📄 ${name}`, '文件', file.path || '']);
+            }
+            
+            fragments.push(this.generateMarkdownTable(headers, rows));
+        } else {
+            fragments.push('*目录为空*');
+        }
+        
+        const content = fragments.join('\n');
+        return this.generateDetailsBlock(`列出目录 V2: ${dirPath}`, content, toolData);
+    }
+
+    /**
      * 渲染 edit_file_v2 工具（完整文件替换，带流式内容）
      * 
      * edit_file_v2 与 edit_file 的区别：
@@ -1530,6 +1622,53 @@ export class MarkdownRenderer implements IMarkdownRenderer {
     }
 
     /**
+     * 从目录树结构中提取文件和目录（分开返回）
+     * T073: 用于 list_dir_v2 工具
+     */
+    private extractFilesAndDirsFromDirectoryTree(node: any, includeSubdirs: boolean = false): { files: any[], dirs: any[] } {
+        const files: any[] = [];
+        const dirs: any[] = [];
+        
+        if (!node) {
+            return { files, dirs };
+        }
+        
+        // 添加子目录
+        if (node.childrenDirs && Array.isArray(node.childrenDirs)) {
+            for (const dir of node.childrenDirs) {
+                const dirName = dir.absPath?.split(/[/\\]/).pop() || 'Unknown';
+                dirs.push({
+                    name: dirName,
+                    path: dir.absPath,
+                    type: '目录',
+                    isDirectory: true
+                });
+                
+                // 如果需要包含子目录，递归处理
+                if (includeSubdirs) {
+                    const subItems = this.extractFilesAndDirsFromDirectoryTree(dir, true);
+                    files.push(...subItems.files);
+                    dirs.push(...subItems.dirs);
+                }
+            }
+        }
+        
+        // 添加文件
+        if (node.childrenFiles && Array.isArray(node.childrenFiles)) {
+            for (const file of node.childrenFiles) {
+                files.push({
+                    name: file.name || 'Unknown',
+                    path: file.path || file.name,
+                    type: '文件',
+                    isDirectory: false
+                });
+            }
+        }
+        
+        return { files, dirs };
+    }
+
+    /**
      * 从文件路径检测编程语言
      */
     private detectLanguageFromFilePath(filePath: string): string {
@@ -1562,6 +1701,107 @@ export class MarkdownRenderer implements IMarkdownRenderer {
         };
         
         return langMap[ext] || '';
+    }
+
+    /**
+     * 渲染创建计划工具（create_plan）
+     * T075: 处理 create_plan 工具
+     * 
+     * 渲染策略：
+     * - Summary: 显示计划名称和状态（✅ 已创建 / ❌ 已拒绝）
+     * - Details: 概览、待办事项列表、计划文件链接
+     */
+    private renderCreatePlanTool(toolData: any): string {
+        const fragments: string[] = [];
+        
+        // 安全解析 JSON 字符串
+        const params = this.safeParseJson(toolData.params);
+        const result = this.safeParseJson(toolData.result);
+        const additionalData = toolData.additionalData || {};
+        
+        // 提取计划信息
+        const planName = params?.name || 'Unnamed Plan';
+        const overview = params?.overview || '';
+        const todos = params?.todos || [];
+        const planContent = params?.plan || '';
+        
+        // 提取状态信息
+        const isRejected = result?.rejected !== undefined;
+        const planUri = additionalData?.planUri || '';
+        const hasOpenedEditor = additionalData?.hasOpenedEditor || false;
+        
+        // 生成 summary 标题
+        const summaryTitle = isRejected
+            ? `❌ Create Plan: ${planName} (已拒绝)`
+            : `✅ Create Plan: ${planName}`;
+        
+        // 显示概览
+        if (overview) {
+            fragments.push('**概览**:');
+            fragments.push(overview);
+            fragments.push('');
+        }
+        
+        // 显示待办事项
+        if (todos.length > 0) {
+            fragments.push(`**待办事项** (${todos.length} 项):`);
+            fragments.push('');
+            
+            for (const todo of todos) {
+                const content = todo.content || todo.text || 'Untitled';
+                const status = todo.status || 'pending';
+                const id = todo.id || '';
+                
+                // 根据状态选择标记和格式
+                let checkbox = '- [ ]';
+                let formattedContent = content;
+                
+                if (status === 'completed' || status === 'done') {
+                    checkbox = '- [x]';
+                } else if (status === 'in_progress' || status === 'in-progress') {
+                    checkbox = '- [ ]';
+                    formattedContent = `🔄 ${content}`;
+                } else if (status === 'cancelled' || status === 'canceled') {
+                    checkbox = '- [x]';
+                    formattedContent = `~~${content}~~`;
+                }
+                
+                fragments.push(`${checkbox} ${formattedContent}`);
+            }
+            fragments.push('');
+        }
+        
+        // 显示计划文件链接
+        if (planUri) {
+            // 解码 URI 并提取文件名
+            const decodedUri = decodeURIComponent(planUri);
+            const fileName = decodedUri.split('/').pop() || planUri;
+            fragments.push(`**计划文件**: \`${fileName}\``);
+            
+            if (hasOpenedEditor) {
+                fragments.push('*（已在编辑器中打开）*');
+            }
+            fragments.push('');
+        }
+        
+        // 显示计划内容预览（如果内容较短则显示，否则只显示统计信息）
+        if (planContent) {
+            const lines = planContent.split('\n').length;
+            const chars = planContent.length;
+            
+            if (chars <= 500) {
+                // 内容较短，直接显示
+                fragments.push('**计划内容**:');
+                fragments.push('');
+                fragments.push(planContent);
+            } else {
+                // 内容较长，只显示统计信息
+                fragments.push(`**计划内容**: ${lines} 行, ${chars} 字符`);
+            }
+        }
+        
+        const content = fragments.join('\n');
+        return this.generateDetailsBlock(summaryTitle, content, toolData);
     }
 
     /**
@@ -1680,9 +1920,10 @@ export class MarkdownRenderer implements IMarkdownRenderer {
      * 渲染读取 Lints 工具（read_lints）
      * T030: 处理 read_lints 工具
      * T063: 更新错误数据结构处理（linterErrorsByFile格式）
+     * T074: 优化错误判断逻辑，基于实际错误数量而非 result 对象是否为空
      * 
      * 渲染策略：
-     * - Summary: 显示检查路径数和错误状态
+     * - Summary: 显示检查路径数和错误状态（✅ 无错误，❌ 有错误）
      * - Details: 显示路径列表和错误详情（如果有）
      */
     private renderReadLintsToolnew(toolData: any): string {
@@ -1702,12 +1943,6 @@ export class MarkdownRenderer implements IMarkdownRenderer {
         const paths = rawArgs?.paths || params?.paths || [];
         const pathCount = paths.length;
         
-        // 判断是否有错误
-        // result 为空对象 {} 或 "{}" 表示无错误
-        const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
-        const hasErrors = resultStr !== '{}' && resultStr !== '' && 
-                         Object.keys(result || {}).length > 0;
-        
         // 提取错误信息（支持两种格式）
         // 格式1: linterErrorsByFile (真实格式)
         const linterErrorsByFile = result?.linterErrorsByFile || [];
@@ -1725,6 +1960,9 @@ export class MarkdownRenderer implements IMarkdownRenderer {
                 totalErrors += (file.errors || []).length;
             }
         }
+        
+        // 判断是否有错误（基于实际错误数量）
+        const hasErrors = totalErrors > 0;
         
         // 生成 summary 标题
         const summaryTitle = hasErrors
@@ -1990,6 +2228,11 @@ export class MarkdownRenderer implements IMarkdownRenderer {
         
         try {
             // III. Agent 任务和流程控制工具
+            if (this.matchesToolName(toolName, ['create_plan'])) {
+                Logger.debug(`renderToolDetails: Matched create plan tool, using renderCreatePlanTool`);
+                return this.renderCreatePlanTool(toolData);
+            }
+            
             if (this.matchesToolName(toolName, ['todo_write', 'manage_todo_list'])) {
                 Logger.debug(`renderToolDetails: Matched todo tool, using renderTodoTool`);
                 return this.renderTodoTool(toolData);
@@ -2027,7 +2270,7 @@ export class MarkdownRenderer implements IMarkdownRenderer {
                 return this.renderGlobFileSearchTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['codebase_search'])) {
+            if (this.matchesToolName(toolName, ['codebase_search', 'semantic_search_full'])) {
                 Logger.debug(`renderToolDetails: Matched codebase search tool, using renderCodebaseSearchTool`);
                 return this.renderCodebaseSearchTool(toolData);
             }
@@ -2037,7 +2280,7 @@ export class MarkdownRenderer implements IMarkdownRenderer {
                 return this.renderWebSearchTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['grep', 'ripgrep'])) {
+            if (this.matchesToolName(toolName, ['grep', 'ripgrep', 'ripgrep_raw_search'])) {
                 Logger.debug(`renderToolDetails: Matched grep tool, using renderGrepTool`);
                 return this.renderGrepTool(toolData);
             }
@@ -2060,6 +2303,11 @@ export class MarkdownRenderer implements IMarkdownRenderer {
             if (this.matchesToolName(toolName, ['list_dir'])) {
                 Logger.debug(`renderToolDetails: Matched list dir tool, using renderListDirTool`);
                 return this.renderListDirTool(toolData);
+            }
+            
+            if (this.matchesToolName(toolName, ['list_dir_v2'])) {
+                Logger.debug(`renderToolDetails: Matched list dir v2 tool, using renderListDirV2Tool`);
+                return this.renderListDirV2Tool(toolData);
             }
             
             if (this.matchesToolName(toolName, ['run_terminal_cmd', 'run_terminal_command', 'run_terminal_command_v2'])) {
