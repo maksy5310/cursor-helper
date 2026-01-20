@@ -1,0 +1,52 @@
+# 编译输出目录不需要的文件
+src/**
+tests/**
+node_modules/**
+*.map
+
+# 开发配置文件
+.vscode/**
+.vscode-test/**
+tsconfig.json
+.eslintrc.json
+.prettierrc
+.editorconfig
+
+# 项目文档和规范
+.cursor/**
+.specify/**
+.specstory/**
+specs/**
+docs/**
+
+# Git 相关
+.git/**
+.gitignore
+.github/**
+
+# 开发环境配置
+.cursorindexingignore
+
+# 测试文件
+**/*.test.ts
+**/*.test.js
+
+# 构建脚本
+package-lock.json
+
+# Markdown 文档（保留 README.md 和 CHANGELOG.md）
+PUBLISH.md
+
+# 临时文件
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# 只保留运行时必需的文件：
+# - out/** (编译后的代码)
+# - resources/** (资源文件)
+# - package.json (扩展配置)
+# - README.md (说明文档)
+# - CHANGELOG.md (更新日志)
+# - LICENSE (许可证)

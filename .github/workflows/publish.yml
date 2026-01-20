@@ -57,33 +57,42 @@ jobs:
           
           echo "Version verified: $TAG_VERSION"
       
-      # 7. 安装 ovsx CLI 工具
-      - name: Install ovsx
-        run: npm install -g ovsx
+      # 7. 安装发布工具
+      - name: Install publishing tools
+        run: npm install -g @vscode/vsce ovsx
       
-      # 8. 发布到 Open VSX Registry
+      # 8. 打包扩展
+      - name: Package extension
+        run: vsce package
+      
+      # 9. 发布到 Open VSX Registry
       - name: Publish to Open VSX
         env:
           OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
-        run: ovsx publish -p $OVSX_PAT
+        run: ovsx publish *.vsix -p $OVSX_PAT
       
-      # 9. 创建 GitHub Release
+      # 10. 创建 GitHub Release 并上传 .vsix 文件
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          files: '*.vsix'
           body: |
-            ## 发布说明
+            ## 📦 发布说明
             
-            版本: ${{ github.ref }}
+            版本: ${{ github.ref_name }}
             
-            已自动发布到 Open VSX Registry
+            ✅ 已自动发布到 [Open VSX Registry](https://open-vsx.org/extension/howell/cursor-assistant)
             
-            ### 安装方式
+            ### 📥 安装方式
             
-            在 Cursor 中搜索 "Cursor助手" 或 "cursor-assistant" 进行安装
+            #### 方式一：从应用市场安装（推荐）
+            在 Cursor 中按 `Ctrl+Shift+X`，搜索 "提示词分享助手" 或 "cursor-assistant"
+            
+            #### 方式二：手动安装 VSIX
+            下载下方的 `.vsix` 文件，在 Cursor 中按 `Ctrl+Shift+P`，选择 "Extensions: Install from VSIX..."
+            
+            ### 📝 更新内容
+            
+            请查看 [CHANGELOG.md](https://github.com/howelljiang/cursor-helper/blob/main/CHANGELOG.md)
           draft: false
           prerelease: false
