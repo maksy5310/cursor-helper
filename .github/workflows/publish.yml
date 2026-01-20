@@ -93,7 +93,9 @@ jobs:
             在 Cursor 中按 `Ctrl+Shift+X`，搜索 "提示词分享助手" 或 "cursor-assistant"
             
             #### 方式二：手动安装 VSIX
-            下载下方的 `.vsix` 文件，在 Cursor 中按 `Ctrl+Shift+P`，选择 "Extensions: Install from VSIX..."
+            **👇 请下载下方的 `.vsix` 文件**
+            
+            在 Cursor 中按 `Ctrl+Shift+P`，选择 "Extensions: Install from VSIX..."
             
             ### 📝 更新内容
             

@@ -1,234 +1,206 @@
-# Cursor助手插件
+# 提示词分享助手
 
-Cursor 使用数据采集插件，用于自动采集 Cursor 的使用数据并保存到本地文件系统。
+<p align="center">
+  <img src="resources/icon.png" width="128" height="128" alt="提示词分享助手">
+</p>
 
-## 功能特性
+<h3 align="center">一键提取 Cursor AI 对话记录，轻松分享你的编程灵感</h3>
 
-- 📊 **自动数据采集**：实时采集 Tab键自动补全、cmd+K 行内自动补全、Agent 对话模式的使用统计
-- 💬 **对话记录**：记录所有 Cursor AI 对话（包括普通聊天和 Agent 模式）
-- 💾 **本地存储**：自动保存到 `./cursor-helper/yyyy-mm-dd/` 目录结构
-- ⚡ **批量写入**：每 10 秒或累积 100 条记录自动写入，优化性能
-- 🔧 **配置管理**：支持启用/禁用数据采集
-- 📤 **智能上传**：上传记录到分享平台,支持表单自动填充
-  - 📧 **邮箱自动填充**：从登录账号自动提取邮箱,无需手动输入
-  - 📁 **项目名称自动填充**：自动使用当前工作区名称,减少重复操作
-  - 🔄 **表单重置后自动填充**：重置表单后自动重新填充邮箱和项目名称
+<p align="center">
+  <img src="https://img.shields.io/badge/version-0.0.5-blue" alt="Version">
+  <img src="https://img.shields.io/badge/Cursor-Compatible-blue" alt="Cursor Compatible">
+  <img src="https://img.shields.io/badge/VS%20Code-Compatible-blue" alt="VS Code Compatible">
+  <img src="https://img.shields.io/badge/License-ISC-green" alt="License">
+</p>
 
-## 快速开始
+---
 
-### 1. 安装依赖
+## 📖 这是什么？
 
-```bash
-npm install
-```
+在 Cursor 中使用 AI Agent 模式编程时，你和 AI 的对话包含了很多价值：
 
-### 2. 编译项目
+- 你的问题思路
+- AI 的解决方案  
+- 代码优化建议
+- Bug 排查过程
 
-```bash
-npm run compile
-```
+这些对话很有用，但 Cursor 没有方便的分享功能。
 
-### 3. 运行插件
+**提示词分享助手**解决这个问题：
 
-#### 方法一：在 Cursor/VS Code 中调试运行（推荐）
+- 🔍 自动提取 Cursor 数据库中的对话
+- 📝 转换为清晰的 Markdown 格式
+- 📤 一键上传，生成分享链接
+- 👥 轻松分享给同事或保存备查
 
-1. 在 Cursor 中打开项目文件夹 `F:\spec-kit\cursor-helper`
-2. 按 `F5` 或点击菜单 `Run > Start Debugging`
-3. 这会打开一个新的 **Extension Development Host** 窗口
-4. 在新窗口中打开任意工作区，插件会自动激活
+---
 
-#### 方法二：使用命令面板
+## ⚡ 安装
 
-1. 在 Cursor 中打开项目
-2. 按 `Ctrl+Shift+P` (Windows) 或 `Cmd+Shift+P` (Mac) 打开命令面板
-3. 输入 `Debug: Start Debugging` 并选择
-4. 选择 `Run Extension` 配置
+### 从 Cursor插件市场安装（推荐）
 
-#### 方法三：打包安装
+1. 打开 Cursor
+2. 按 `Ctrl+Shift+X` (Windows/Linux) 或 `Cmd+Shift+X` (Mac)
+3. 搜索 **"提示词分享助手"**
+4. 点击安装
 
-```bash
-# 安装 vsce（VS Code Extension 打包工具）
-npm install -g @vscode/vsce
+### 手动安装
 
-# 打包插件
-vsce package
+1. 下载 [最新版本](https://github.com/howelljiang/cursor-helper/releases)
+2. 按 `Ctrl+Shift+P` / `Cmd+Shift+P` 
+3. 输入 `Extensions: Install from VSIX...`
+4. 选择下载的 `.vsix` 文件
 
-# 这会生成 cursor-assistant-0.0.1.vsix 文件
-# 然后在 Cursor 中：
-# 1. 按 Ctrl+Shift+P 打开命令面板
-# 2. 输入 "Extensions: Install from VSIX..."
-# 3. 选择生成的 .vsix 文件
-```
+---
 
-## 验证插件运行
+## 🚀 快速开始
 
-### 1. 查看输出日志
+### 1️⃣ 登录
 
-1. 在 Extension Development Host 窗口中，按 `Ctrl+Shift+U` 打开输出面板
-2. 在下拉菜单中选择 `Cursor Assistant`
-3. 应该能看到类似以下的日志：
-   ```
-   [timestamp] [INFO] Cursor Assistant extension is activating...
-   [timestamp] [INFO] Data collection is enabled
-   [timestamp] [INFO] Storage manager initialized successfully
-   [timestamp] [INFO] Data collector started successfully
-   ```
+安装插件后，在 Cursor 左侧活动栏找到 **📚 书签图标**（Cursor Assistant），点击打开插件面板。
 
-### 2. 检查数据文件
+**首次使用需要登录：**
+1. 在"个人信息"面板点击 **登录** 按钮
+2. 浏览器自动打开登录页面（支持 GitHub/Google 登录）
+3. 登录成功后，Cursor 会自动更新你的用户信息
 
-1. 在 Extension Development Host 窗口中打开任意工作区
-2. 进行一些编辑操作（输入代码、使用 Tab 补全等）
-3. 等待 10 秒或进行 100 次操作
-4. 在工作区根目录下应该能看到 `cursor-helper` 文件夹：
-   ```
-   cursor-helper/
-   └── 2025-12-10/          # 今天的日期
-       ├── stats-20251210-143022.json
-       └── agent-20251210-143022.json
-   ```
+> 💡 提示：登录后你的头像和用户名会显示在面板顶部
 
-### 3. 测试命令
+### 2️⃣ 浏览对话记录
 
-1. 在 Extension Development Host 窗口中，按 `Ctrl+Shift+P` 打开命令面板
-2. 输入 `Toggle Data Collection` 并执行
-3. 应该能看到提示消息："Data collection enabled" 或 "Data collection disabled"
+在 **Sessions** 面板中，你可以看到所有 Cursor Composer 的对话记录：
+- 按时间倒序排列
+- 显示会话标题和项目名称
+- 点击任意会话，在编辑器中查看 Markdown 格式的对话内容
 
-## 使用指南
+### 3️⃣ 分享对话
 
-### 上传记录到分享平台
+想要分享某个对话？有两种方式：
 
-1. **配置登录信息**（首次使用）：
-   - 按 `Ctrl+Shift+P` 打开命令面板
-   - 输入 `Configure Upload Settings` 并执行
-   - 输入 JWT Token 进行身份验证
-   
-2. **上传会话记录**：
-   - 按 `Ctrl+Shift+P` 打开命令面板
-   - 输入 `Upload Record` 并执行
-   - 在弹出的表单中：
-     - **邮箱**：自动填充当前登录账号的邮箱（可编辑）
-     - **项目名称**：自动填充当前工作区名称（可编辑）
-     - **上传时间**：默认为当前时间
-     - **内容格式**：选择 Markdown、Text、JSON 或 HTML
-     - **内容**：从数据库自动加载的会话内容（可编辑）
-   - 点击 **提交** 上传记录
+**方式一：右键菜单**
+1. 在 Sessions 列表中，右键点击要分享的对话
+2. 选择"分享"
+3. 在弹出的表单中确认信息（项目名称会自动填充）
+4. 点击"提交"，几秒后获得分享链接
 
-3. **查看上传历史**：
-   - 按 `Ctrl+Shift+P` 打开命令面板
-   - 输入 `View Upload History` 并执行
-   - 查看所有已上传的记录
+**方式二：直接分享**
+1. 点击会话打开 Markdown 内容
+2. 使用命令面板（`Ctrl+Shift+P` / `Cmd+Shift+P`）
+3. 输入"Cursor Assistant"查看可用命令
+4. 选择上传相关命令
 
-### 自动填充功能说明
+> 🔗 分享链接可以发送给同事，或保存到知识库供日后查阅
 
-- **邮箱自动填充**：
-  - 从 JWT Token 中自动提取用户邮箱
-  - 如果未登录或 Token 无效,字段保持为空
-  - 可以手动修改自动填充的邮箱
+---
 
-- **项目名称自动填充**：
-  - 使用当前工作区（workspace）的名称
-  - 如果没有打开工作区,字段保持为空
-  - 可以手动修改自动填充的项目名称
+## 💡 典型场景
 
-- **表单重置**：
-  - 点击表单的"重置"按钮后
-  - 邮箱和项目名称会自动重新填充
-  - 内容字段会被清空
+**学习笔记**
 
-## 配置选项
+你和 AI 深入讨论了某个技术问题，对话很有价值：
+- ✅ 点击对话，上传
+- ✅ 得到链接，随时回顾
 
-在 Cursor 设置中可以配置：
+**Bug 排查**
 
-- `cursor-assistant.enabled`: 启用/禁用数据采集（默认：true）
-- `cursor-assistant.batchWriteInterval`: 批量写入间隔（毫秒，默认：10000）
-- `cursor-assistant.batchWriteThreshold`: 批量写入阈值（记录数，默认：100）
+你和 AI 一起排查了 1 小时的 Bug：
+- ✅ 上传对话记录
+- ✅ 分享给团队成员
+- ✅ 避免其他人重复踩坑
 
-### 环境配置
+**最佳实践**
 
-项目使用外部 JSON 配置文件方案：
+AI 给出了很好的代码优化建议：
+- ✅ 保存对话
+- ✅ 整理成团队规范
+- ✅ 沉淀为知识库
 
-- **开发环境** (`src/config.json`): 默认使用 `https://spec.pixvert.app`
-- **生产环境** (`src/config.prod.json`): 自动发布时使用 `https://spec.ak01.cn`
-- **配置类** (`src/utils/config.ts`): 自动读取配置文件
+---
 
-```json
-// src/config.json
-{
-  "env": "development",
-  "baseUrl": "https://spec.pixvert.app"
-}
-```
+## 🔒 隐私说明
 
-详见：[配置管理说明](./docs/CONFIG_MANAGEMENT.md)
+### 我们做什么
 
-## 项目结构
+- ✅ **只读**：从 Cursor 本地数据库读取数据
+- ✅ **用户控制**：只在你点"上传"时才发送数据
+- ✅ **可编辑**：上传前可以编辑、删除敏感内容
 
-```
-cursor-helper/
-├── src/
-│   ├── extension.ts          # 扩展入口点
-│   ├── dataCollector.ts      # 数据采集器
-│   ├── storageManager.ts    # 存储管理器
-│   ├── eventListeners.ts    # 事件监听器
-│   ├── models/              # 数据模型
-│   │   ├── usageStats.ts
-│   │   └── agentRecord.ts
-│   ├── dataAccess/          # 数据访问层
-│   │   ├── dataAccess.ts
-│   │   ├── databaseAccess.ts
-│   │   └── sqliteAccess.ts
-│   └── utils/               # 工具类
-│       ├── logger.ts
-│       └── config.ts
-├── out/                     # 编译输出
-├── package.json
-├── tsconfig.json
-└── .vscode/
-    ├── launch.json          # 调试配置
-    └── tasks.json           # 构建任务
-```
+### 我们不做什么
 
-## 开发
+- ❌ 不会自动上传你的对话
+- ❌ 不会读取你的代码文件
+- ❌ 不会收集编辑器操作记录
 
-### 编译
+---
 
-```bash
-npm run compile
-```
+## ❓ 常见问题
 
-### 监听模式（自动编译）
+**Q: 为什么看不到会话列表？**
 
-```bash
-npm run watch
-```
+A: 请确认以下几点：
+- 确保你使用过 Cursor 的 **Composer** 模式（Agent 对话）
+- 插件已经成功激活（查看左侧活动栏是否有书签图标）
+- 如果仍然没有，尝试重启 Cursor
 
-### 调试
+**Q: 登录失败怎么办？**
 
-1. 在 VS Code/Cursor 中打开项目
-2. 按 `F5` 启动调试
-3. 在新打开的 Extension Development Host 窗口中测试
+A: 
+- 检查网络连接是否正常
+- 确认浏览器已完成登录流程
+- 如果浏览器关闭过快，在插件中重新点击"登录"按钮
+- 查看 Cursor 输出面板（Output > Cursor Assistant）的错误信息
 
-## 故障排除
+**Q: 上传失败怎么办？**
 
-### 插件没有激活
+A: 请按以下步骤排查：
+1. 确认是否已登录（查看个人信息面板）
+2. 检查网络连接
+3. 查看输出面板（Output > Cursor Assistant）的详细错误
+4. 如果是大文件，可能需要等待更长时间
 
-- 检查输出面板中的错误信息
-- 确保工作区已打开（插件需要工作区路径）
-- 检查 `package.json` 中的 `activationEvents` 配置
+**Q: 可以删除已上传的记录吗？**
 
-### 数据文件没有生成
+A: 可以。使用以下方式管理：
+1. 点击插件面板的"打开个人中心"按钮
+2. 或直接访问分享平台网站
+3. 在"我的记录"页面可以查看、编辑、删除已上传的内容
 
-- 检查工作区是否有写入权限
-- 查看输出日志中的错误信息
-- 确认数据采集已启用（默认启用）
+**Q: 支持哪些导出格式？**
 
-### 编译错误
+A: 目前支持：
+- **Markdown** - 适合技术文档，格式清晰（推荐）
+- **Text** - 纯文本格式
+- **JSON** - 结构化数据，便于二次处理
+- **HTML** - 可直接在浏览器中查看
 
-- 运行 `npm install` 确保所有依赖已安装
-- 检查 TypeScript 版本：`npm list typescript`
-- 确保 `@types/node` 和 `@types/vscode` 已安装
+**Q: 我的数据安全吗？**
 
-## 许可证
+A: 
+- ✅ 插件只读取 Cursor 本地数据库，不会修改任何文件
+- ✅ 只有你点击"上传"时才会发送数据到服务器
+- ✅ 上传前可以预览和编辑内容，删除敏感信息
+- ✅ 所有上传的记录只有你自己可以管理
 
-ISC
+**Q: 这个插件收费吗？**
 
+A: 插件完全免费，开源在 GitHub 上。
+
+---
+
+## 🔗 链接
+
+- [GitHub 仓库](https://github.com/howelljiang/cursor-helper)
+- [问题反馈](https://github.com/howelljiang/cursor-helper/issues)
+- [功能建议](https://github.com/howelljiang/cursor-helper/discussions)
+
+---
+
+## 📄 许可证
+
+ISC License
+
+---
+
+<p align="center">
+  让每一次 AI 对话都值得分享 ✨
+</p>

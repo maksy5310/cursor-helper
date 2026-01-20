@@ -3,7 +3,8 @@
   "publisher": "Howell",
   "displayName": "提示词分享助手",
   "description": "支持提示词分享、提示词搜索、提示词收藏、提示词导出等功能  ",
-  "version": "0.0.4",
+  "icon": "resources/icon.png",
+  "version": "0.0.5",
   "license": "ISC",
   "repository": {
     "type": "git",
@@ -35,36 +36,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "cursor-assistant.discoverData",
-        "title": "Discover Cursor Data Files",
-        "category": "Cursor Assistant"
-      },
-      {
-        "command": "cursor-assistant.analyzeDatabase",
-        "title": "Analyze Cursor Database",
-        "category": "Cursor Assistant"
-      },
-      {
-        "command": "cursor-assistant.openSessionMarkdown",
-        "title": "Open Session Markdown",
-        "category": "Cursor Assistant"
-      },
-      {
-        "command": "cursor-assistant.showLogs",
-        "title": "Show Logs",
-        "category": "Cursor Assistant"
-      },
-      {
-        "command": "cursor-assistant.testToolExtraction",
-        "title": "Test Tool Extraction",
-        "category": "Cursor Assistant"
-      },
-      {
-        "command": "cursor-assistant.uploadRecord",
-        "title": "上传记录",
-        "category": "Cursor Assistant"
-      },
-      {
         "command": "cursor-assistant.configureUpload",
         "title": "配置 Base URL",
         "category": "Cursor Assistant"
@@ -80,11 +51,6 @@
         "category": "Cursor Assistant"
       },
       {
-        "command": "cursor-assistant.testUriHandler",
-        "title": "测试 URI Handler",
-        "category": "Cursor Assistant"
-      },
-      {
         "command": "cursor-assistant.logout",
         "title": "退出登录",
         "category": "Cursor Assistant"
@@ -93,16 +59,6 @@
         "command": "cursor-assistant.openUserCenter",
         "title": "打开个人中心",
         "category": "Cursor Assistant"
-      },
-      {
-        "command": "cursor-assistant.refreshUserInfo",
-        "title": "刷新用户信息",
-        "category": "Cursor Assistant"
-      },
-      {
-        "command": "cursor-assistant.showStatus",
-        "title": "显示插件状态",
-        "category": "Cursor Assistant"
       }
     ],
     "viewsContainers": {
@@ -110,7 +66,7 @@
         {
           "id": "cursor-assistant",
           "title": "Cursor Assistant",
-          "icon": "$(database)"
+          "icon": "$(references)"
         }
       ]
     },
@@ -134,10 +90,6 @@
           "command": "cursor-assistant.logout",
           "when": "view == cursor-assistant.userInfo && viewItem == userInfo-loggedIn",
           "group": "inline"
-        },
-        {
-          "command": "cursor-assistant.refreshUserInfo",
-          "when": "view == cursor-assistant.userInfo && viewItem == userInfo-loggedIn"
         }
       ]
     }

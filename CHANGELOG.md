@@ -11,6 +11,24 @@
 
 ---
 
+## [0.0.5] - 2026-01-20
+
+### Added
+- 添加扩展图标 `resources/icon.png`，在插件市场更易识别
+
+### Changed
+- 修改活动栏图标为 `$(references)` 样式，更符合插件功能定位
+- 优化命令列表，移除内部测试和开发用的命令，简化用户界面
+- 清理无用的菜单项引用
+
+### Removed
+- 移除 `discoverData`、`analyzeDatabase`、`openSessionMarkdown` 等开发调试命令
+- 移除 `testToolExtraction`、`testUriHandler`、`showLogs`、`showStatus` 等内部测试命令
+- 移除 `uploadRecord` 命令（功能已集成到上下文菜单）
+- 移除 `refreshUserInfo` 命令的菜单项引用
+
+---
+
 ## [0.0.4] - 2026-01-20
 
 ### Fixed
