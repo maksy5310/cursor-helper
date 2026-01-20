@@ -1,9 +1,25 @@
 {
   "name": "cursor-assistant",
   "publisher": "howell",
-  "displayName": "Cursor助手",
-  "description": "Cursor 使用数据采集插件",
-  "version": "0.0.2",
+  "displayName": "提示词分享助手",
+  "description": "支持提示词分享、提示词搜索、提示词收藏、提示词导出等功能  ",
+  "version": "0.0.3",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/howelljiang/cursor-helper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/howelljiang/cursor-helper/issues"
+  },
+  "homepage": "https://github.com/howelljiang/cursor-helper#readme",
+  "keywords": [
+    "cursor",
+    "vscode",
+    "assistant",
+    "data-collection",
+    "productivity"
+  ],
   "engines": {
     "vscode": "^1.74.0",
     "node": ">=18.0.0"
@@ -127,8 +143,9 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run compile && npm run copy-config",
     "compile": "tsc -p ./",
+    "copy-config": "node -e \"require('fs').cpSync('src/config.json', 'out/config.json')\"",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node ./out/test/runTest.js"
   },
