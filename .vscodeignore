@@ -13,13 +13,14 @@ tsconfig.json
 .eslintrc.json
 .prettierrc
 .editorconfig
-
 # 项目文档和规范
 .cursor/**
 .specify/**
 .specstory/**
 specs/**
 docs/**
+# 诊断报告
+diagnostics/**
 
 # Git 相关
 .git/**

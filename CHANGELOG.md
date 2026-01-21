@@ -11,6 +11,43 @@
 
 ---
 
+## [0.0.7] - 2026-01-21
+
+### Added
+- 新增 Mac 和远程开发环境支持
+  - 增强路径解析：支持 Unix 风格路径（`/Users/...`）
+  - 增强远程路径支持：支持 `vscode-remote://` 协议
+  - 实现智能路径后缀匹配算法（用于远程开发场景）
+- 新增 `diagnoseWorkspace` 命令，用于诊断工作空间路径匹配问题
+- 新增 `diagnoseLogin` 命令，用于诊断登录按钮无法打开浏览器的问题
+- 新增 `scanWorkspaces` 命令，扫描所有工作空间并生成诊断报告（集成独立诊断脚本功能）
+- 新增 `getAllWorkspaceInfo()` 方法，获取所有工作空间的详细信息
+- 添加详细的调试日志输出，便于排查路径匹配问题
+- 新增独立诊断工具（`diagnostics/`）
+  - `scan-workspaces.js`：核心诊断脚本，可独立运行
+  - `scan.bat`：Windows 一键启动脚本
+  - `scan.sh`：Mac/Linux 一键启动脚本
+  - 自动生成 JSON 格式的详细诊断报告
+  - 支持彩色控制台输出
+  - 识别远程工作空间并提供匹配建议
+
+#### Changed
+- 优化 `decodeFileUrl()` 方法，增强对 Mac 和远程路径的处理
+- 优化工作空间路径匹配逻辑，支持多种匹配策略
+- 增强日志输出，提供更清晰的路径匹配过程信息
+
+#### Fixed
+- 修复 Mac 下工作空间路径匹配失败的问题
+- 修复远程开发环境下路径格式不兼容的问题
+
+#### Documentation
+- 新增 `docs/MAC_REMOTE_PATH_FIX.md` - Mac 和远程开发路径匹配技术文档
+- 新增 `docs/MAC_REMOTE_TROUBLESHOOTING.md` - Mac 和远程开发故障排查指南
+- 新增 `docs/LOGIN_TROUBLESHOOTING.md` - 登录问题排查指南
+- 更新 `README.md`，添加 Mac 和远程开发用户的使用说明
+
+---
+
 ## [0.0.6] - 2026-01-21
 
 ### Added

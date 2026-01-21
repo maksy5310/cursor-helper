@@ -5,6 +5,9 @@ import { TestDataGenerator } from './testDataGenerator';
 import { discoverCursorDataCommand } from './commands/discoverCursorData';
 import { analyzeDatabaseCommand } from './commands/analyzeDatabase';
 import { openSessionMarkdownCommand } from './commands/openSessionMarkdown';
+import { diagnoseWorkspaceCommand } from './commands/diagnoseWorkspace';
+import { diagnoseLoginCommand } from './commands/diagnoseLogin';
+import { scanWorkspacesCommand } from './commands/scanWorkspaces';
 import { SessionListPanel } from './ui/sessionListPanel';
 import { DatabaseAccess } from './dataAccess/databaseAccess';
 import { runToolExtractionTests, testHtmlComments } from './test/toolExtractionTest';
@@ -215,6 +218,33 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     );
     context.subscriptions.push(analyzeDbCommand);
+
+    // 注册诊断工作空间命令
+    const diagnoseWorkspaceCmd = vscode.commands.registerCommand(
+        'cursor-assistant.diagnoseWorkspace',
+        async () => {
+            await diagnoseWorkspaceCommand();
+        }
+    );
+    context.subscriptions.push(diagnoseWorkspaceCmd);
+
+    // 注册诊断登录命令
+    const diagnoseLoginCmd = vscode.commands.registerCommand(
+        'cursor-assistant.diagnoseLogin',
+        async () => {
+            await diagnoseLoginCommand(context);
+        }
+    );
+    context.subscriptions.push(diagnoseLoginCmd);
+
+    // 注册扫描工作空间命令
+    const scanWorkspacesCmd = vscode.commands.registerCommand(
+        'cursor-assistant.scanWorkspaces',
+        async () => {
+            await scanWorkspacesCommand(context);
+        }
+    );
+    context.subscriptions.push(scanWorkspacesCmd);
 
     // 注册显示日志命令
     const showLogsCommand = vscode.commands.registerCommand(

@@ -6,6 +6,7 @@
 import { UploadRecord, UploadConfig, UploadResponse, UploadErrorResponse } from '../models/uploadRecord';
 import { ApiClient, HttpError, TimeoutError } from '../utils/apiClient';
 import { Logger } from '../utils/logger';
+import { sanitizeForUpload, getSanitizationReport, hasSurrogates } from '../utils/textSanitizer';
 import * as zlib from 'zlib';
 import { promisify } from 'util';
 
@@ -126,6 +127,20 @@ export class UploadService implements IUploadService {
     async uploadRecord(record: UploadRecord, config: UploadConfig): Promise<UploadResponse> {
         const url = `${config.api_url}/records`;
         
+        // 第一步：清理内容中的非法字符（孤立的代理字符等）
+        let cleanedContent = record.content;
+        if (hasSurrogates(record.content)) {
+            Logger.warn('Content contains orphaned surrogate characters, sanitizing...');
+            cleanedContent = sanitizeForUpload(record.content);
+            
+            const report = getSanitizationReport(record.content, cleanedContent);
+            Logger.info(`Sanitization report: removed ${report.surrogateCount} orphaned surrogates, ` +
+                       `length ${report.originalLength} -> ${report.cleanedLength}`);
+        }
+        
+        // 使用清理后的内容
+        record = { ...record, content: cleanedContent };
+        
         // 检查内容大小，决定是否需要压缩
         const contentSize = Buffer.byteLength(record.content, 'utf8');
         const shouldCompress = contentSize > 500 * 1024; // 大于500KB就压缩
@@ -232,8 +247,18 @@ export class UploadService implements IUploadService {
      */
     private parseErrorResponse(status: number, errorResponse: UploadErrorResponse): UploadError {
         const error = errorResponse.error;
-        const message = error.message || '未知错误';
+        let message = error.message || '未知错误';
         const details = error.details;
+
+        // 针对常见错误提供更友好的消息
+        if (status === 400) {
+            // 检查是否是编码错误
+            if (message.includes('utf-8') || message.includes('encode') || message.includes('surrogate')) {
+                message = '内容包含无法编码的特殊字符。插件已尝试自动清理，但仍然失败。' +
+                          '建议：请检查内容中是否包含损坏的 emoji 或特殊字符。\n' +
+                          `原始错误: ${message}`;
+            }
+        }
 
         switch (status) {
             case 400:
@@ -337,6 +362,14 @@ export class UploadService implements IUploadService {
      * 将记录分成多个块，依次上传，服务器端合并
      */
     async uploadRecordInChunks(record: UploadRecord, config: UploadConfig): Promise<UploadResponse> {
+        // 清理内容中的非法字符
+        let cleanedContent = record.content;
+        if (hasSurrogates(record.content)) {
+            Logger.warn('Content contains orphaned surrogate characters in chunked upload, sanitizing...');
+            cleanedContent = sanitizeForUpload(record.content);
+            record = { ...record, content: cleanedContent };
+        }
+        
         const CHUNK_SIZE = 700 * 1024; // 每块700KB（安全余量）
         const contentSize = Buffer.byteLength(record.content, 'utf8');
         const totalChunks = Math.ceil(contentSize / CHUNK_SIZE);

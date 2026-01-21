@@ -62,26 +62,51 @@ export class CursorDataLocator {
     }
 
     /**
-     * 将 file:// URL 路径转换为本地文件系统路径
-     * @param fileUrl file:// URL 格式的路径（如 "file:///f%3A/cursor-ws/p1sc-smartcontroller"）
-     * @returns 本地文件系统路径
+     * 将 file:// URL 路径或远程路径转换为本地文件系统路径
+     * @param fileUrl file:// URL 格式的路径或远程路径
+     *                如 "file:///f%3A/cursor-ws/p1sc-smartcontroller" (Windows)
+     *                如 "file:///Users/username/project" (Mac)
+     *                如 "vscode-remote://ssh-remote+hostname/path/to/project" (远程开发)
+     * @returns 本地文件系统路径，对于无法解析的远程路径返回原始路径
      */
     private static decodeFileUrl(fileUrl: string): string {
         try {
+            // 检查是否是远程开发路径
+            if (fileUrl.startsWith('vscode-remote://')) {
+                // 远程路径格式: vscode-remote://ssh-remote+hostname/path/to/project
+                // 提取实际路径部分
+                const match = fileUrl.match(/^vscode-remote:\/\/[^/]+(.+)$/);
+                if (match && match[1]) {
+                    const remotePath = decodeURIComponent(match[1]);
+                    Logger.debug(`Decoded remote path: ${remotePath} from ${fileUrl}`);
+                    return remotePath;
+                }
+                Logger.debug(`Cannot parse remote URL: ${fileUrl}, returning as-is`);
+                return fileUrl;
+            }
+
+            // 处理 file:// 本地路径
             // 移除 file:// 或 file:/// 前缀
             let decoded = fileUrl.replace(/^file:\/\/+/, '');
             // URL 解码
             decoded = decodeURIComponent(decoded);
-            // 在 Windows 上，处理路径格式
+            
+            // 平台特定的路径处理
             if (process.platform === 'win32') {
-                // 如果路径是 /f:/... 或 f:/... 格式，需要转换为 f:\...
+                // Windows: 如果路径是 /f:/... 或 f:/... 格式，需要转换为 f:\...
                 if (decoded.match(/^\/?[a-zA-Z]:\//)) {
                     decoded = decoded.replace(/^\/+/, '').replace(/\//g, '\\');
                 } else if (decoded.match(/^\/[a-zA-Z]:/)) {
                     // 处理 /f: 格式
                     decoded = decoded.substring(1).replace(/\//g, '\\');
                 }
+            } else {
+                // Mac/Linux: 确保路径以 / 开头
+                if (!decoded.startsWith('/')) {
+                    decoded = '/' + decoded;
+                }
             }
+            
             return path.normalize(decoded);
         } catch (error) {
             Logger.debug(`Failed to decode file URL ${fileUrl}: ${error}`);
@@ -113,7 +138,8 @@ export class CursorDataLocator {
         // 如果提供了工作空间路径，通过读取 workspace.json 文件来匹配
         if (workspacePath) {
             const normalizedWorkspacePath = path.normalize(workspacePath);
-            Logger.debug(`Searching for workspace database matching path: ${normalizedWorkspacePath}`);
+            Logger.info(`Searching for workspace database matching path: ${normalizedWorkspacePath}`);
+            Logger.debug(`Platform: ${process.platform}`);
             
             try {
                 const entries = await fs.readdir(workspaceStorageDir, { withFileTypes: true });
@@ -129,35 +155,78 @@ export class CursorDataLocator {
                             const workspacePathInJson = workspaceInfo.workspace || workspaceInfo.folder;
                             
                             if (workspacePathInJson) {
+                                Logger.debug(`\nWorkspace ${entry.name}:`);
+                                Logger.debug(`  Original path in JSON: ${workspacePathInJson}`);
+                                
                                 const decodedPath = this.decodeFileUrl(workspacePathInJson);
                                 const normalizedPath = path.normalize(decodedPath);
                                 
-                                Logger.debug(`Checking workspace ${entry.name}: stored=${normalizedPath}, current=${normalizedWorkspacePath}`);
+                                Logger.debug(`  Decoded path: ${decodedPath}`);
+                                Logger.debug(`  Normalized path: ${normalizedPath}`);
+                                Logger.debug(`  Current workspace path: ${normalizedWorkspacePath}`);
                                 
-                                // 使用大小写不敏感的比较（Windows）
-                                const pathMatches = process.platform === 'win32' 
-                                    ? normalizedPath.toLowerCase() === normalizedWorkspacePath.toLowerCase()
-                                    : normalizedPath === normalizedWorkspacePath;
+                                // 路径匹配策略
+                                let pathMatches = false;
+                                let matchReason = '';
+                                
+                                // 策略1: 完全匹配（大小写根据平台决定）
+                                if (process.platform === 'win32') {
+                                    pathMatches = normalizedPath.toLowerCase() === normalizedWorkspacePath.toLowerCase();
+                                    matchReason = 'exact match (case-insensitive)';
+                                } else {
+                                    pathMatches = normalizedPath === normalizedWorkspacePath;
+                                    matchReason = 'exact match';
+                                }
+                                
+                                // 策略2: 对于远程路径，尝试匹配路径末尾部分
+                                if (!pathMatches && workspacePathInJson.startsWith('vscode-remote://')) {
+                                    // 远程路径可能与本地路径的末尾部分匹配
+                                    // 例如: vscode-remote://ssh-remote+host/home/user/project 
+                                    //       vs /Users/user/project (Mac 本地映射)
+                                    const normalizedPathParts = normalizedPath.split(path.sep).filter(p => p);
+                                    const workspacePathParts = normalizedWorkspacePath.split(path.sep).filter(p => p);
+                                    
+                                    Logger.debug(`  Remote path parts: [${normalizedPathParts.join(', ')}]`);
+                                    Logger.debug(`  Current path parts: [${workspacePathParts.join(', ')}]`);
+                                    
+                                    // 尝试匹配最后N个路径部分（从3到1递减）
+                                    for (let depth = Math.min(3, normalizedPathParts.length, workspacePathParts.length); depth > 0; depth--) {
+                                        const storedSuffix = normalizedPathParts.slice(-depth).join('/');
+                                        const currentSuffix = workspacePathParts.slice(-depth).join('/');
+                                        
+                                        if (storedSuffix === currentSuffix) {
+                                            pathMatches = true;
+                                            matchReason = `remote path suffix match (depth=${depth}): ${storedSuffix}`;
+                                            Logger.debug(`  ✓ ${matchReason}`);
+                                            break;
+                                        }
+                                    }
+                                }
                                 
                                 if (pathMatches) {
                                     const dbPath = path.join(workspaceStorageDir, entry.name, 'state.vscdb');
                                     try {
                                         await fs.access(dbPath);
-                                        Logger.info(`Found matching workspace database: ${entry.name} (path: ${normalizedWorkspacePath})`);
+                                        Logger.info(`✓ Found matching workspace database: ${entry.name}`);
+                                        Logger.info(`  Match reason: ${matchReason}`);
+                                        Logger.info(`  Database path: ${dbPath}`);
                                         return dbPath;
                                     } catch {
-                                        Logger.debug(`Workspace database file not found for matched workspace: ${entry.name}`);
+                                        Logger.debug(`  ✗ Database file not found: ${dbPath}`);
                                         continue;
                                     }
+                                } else {
+                                    Logger.debug(`  ✗ No match`);
                                 }
                             }
                         }
                     }
                 }
                 
-                Logger.warn(`No matching workspace database found for path: ${normalizedWorkspacePath}`);
+                Logger.warn(`✗ No matching workspace database found for path: ${normalizedWorkspacePath}`);
+                Logger.warn(`  Checked ${entries.length} workspace directories`);
             } catch (error) {
-                Logger.debug(`Failed to search workspace databases: ${error}`);
+                Logger.error(`Failed to search workspace databases: ${error}`);
             }
         }
 
@@ -299,6 +368,76 @@ export class CursorDataLocator {
         }
 
         return files;
+    }
+
+    /**
+     * 获取所有工作空间信息（包含路径信息）
+     * 用于调试和诊断路径匹配问题
+     */
+    static async getAllWorkspaceInfo(): Promise<Array<{
+        id: string;
+        path: string;
+        originalPath: string;
+        type: 'folder' | 'workspace' | 'remote';
+        dbPath: string;
+        dbExists: boolean;
+    }>> {
+        const userDataDir = this.getCursorUserDataDir();
+        const workspaceStorageDir = path.join(userDataDir, 'workspaceStorage');
+        const workspaces: Array<{
+            id: string;
+            path: string;
+            originalPath: string;
+            type: 'folder' | 'workspace' | 'remote';
+            dbPath: string;
+            dbExists: boolean;
+        }> = [];
+
+        try {
+            const entries = await fs.readdir(workspaceStorageDir, { withFileTypes: true });
+            
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    const workspaceJsonPath = path.join(workspaceStorageDir, entry.name, 'workspace.json');
+                    const workspaceInfo = await this.readWorkspaceJson(workspaceJsonPath);
+                    
+                    if (workspaceInfo) {
+                        const workspacePathInJson = workspaceInfo.workspace || workspaceInfo.folder;
+                        
+                        if (workspacePathInJson) {
+                            const decodedPath = this.decodeFileUrl(workspacePathInJson);
+                            const dbPath = path.join(workspaceStorageDir, entry.name, 'state.vscdb');
+                            let dbExists = false;
+                            
+                            try {
+                                await fs.access(dbPath);
+                                dbExists = true;
+                            } catch {
+                                // db 不存在
+                            }
+                            
+                            let type: 'folder' | 'workspace' | 'remote' = workspaceInfo.folder ? 'folder' : 'workspace';
+                            if (workspacePathInJson.startsWith('vscode-remote://')) {
+                                type = 'remote';
+                            }
+                            
+                            workspaces.push({
+                                id: entry.name,
+                                path: path.normalize(decodedPath),
+                                originalPath: workspacePathInJson,
+                                type,
+                                dbPath,
+                                dbExists
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            Logger.debug(`Failed to get workspace info: ${error}`);
+        }
+
+        return workspaces;
     }
 
     /**

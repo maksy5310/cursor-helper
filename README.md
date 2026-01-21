@@ -142,13 +142,41 @@ A: 请确认以下几点：
 - 插件已经成功激活（查看左侧活动栏是否有书签图标）
 - 如果仍然没有，尝试重启 Cursor
 
+> 💡 **Mac 和远程开发用户**: 如果在 Mac 或 SSH 远程开发环境下看不到会话列表，有两种诊断方式：
+> 
+> **方式1: 在 Cursor 中运行诊断命令**
+> 1. 打开命令面板 (`Cmd+Shift+P` / `Ctrl+Shift+P`)
+> 2. 输入 `Cursor Assistant: 诊断工作空间路径`
+> 3. 查看诊断结果和解决建议
+> 
+> **方式2: 使用独立诊断脚本（推荐）**
+> ```bash
+> # Windows: 双击运行 diagnostics/scan.bat
+> # Mac/Linux: 
+> cd diagnostics
+> ./scan.sh
+> ```
+> 这会生成详细的诊断报告 (`workspace-diagnostic-report.json`)，可以发送给开发者分析。
+> 
+> 详细说明请参考：
+> - [Mac 和远程开发使用指南](./docs/MAC_REMOTE_TROUBLESHOOTING.md)
+> - [诊断工具使用说明](./diagnostics/README.md)
+
 **Q: 登录失败怎么办？**
 
-A: 
+A: 如果点击"登录"按钮后浏览器没有打开，请运行诊断命令：
+
+1. 打开命令面板 (`Cmd+Shift+P` / `Ctrl+Shift+P`)
+2. 输入 `Cursor Assistant: 诊断登录问题`
+3. 按照提示测试浏览器打开功能
+
+如果浏览器能打开但登录失败：
 - 检查网络连接是否正常
 - 确认浏览器已完成登录流程
 - 如果浏览器关闭过快，在插件中重新点击"登录"按钮
 - 查看 Cursor 输出面板（Output > Cursor Assistant）的错误信息
+
+详细说明：[登录问题排查指南](./docs/LOGIN_TROUBLESHOOTING.md)
 
 **Q: 上传失败怎么办？**
 

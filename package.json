@@ -4,7 +4,7 @@
   "displayName": "提示词分享助手",
   "description": "支持提示词分享、提示词搜索、提示词收藏、提示词导出等功能  ",
   "icon": "resources/icon.png",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "license": "ISC",
   "repository": {
     "type": "git",
@@ -58,6 +58,21 @@
       {
         "command": "cursor-assistant.openUserCenter",
         "title": "打开个人中心",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.diagnoseWorkspace",
+        "title": "诊断工作空间路径",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.diagnoseLogin",
+        "title": "诊断登录问题",
+        "category": "Cursor Assistant"
+      },
+      {
+        "command": "cursor-assistant.scanWorkspaces",
+        "title": "扫描所有工作空间",
         "category": "Cursor Assistant"
       }
     ],
