@@ -7,7 +7,17 @@
 ## [Unreleased]
 
 ### 待发布的变更
-- 暂无
+
+#### Fixed
+- 修复 Remote SSH 环境下无法访问本地数据库的问题
+  - 添加 `extensionKind: ["ui"]` 配置，强制插件在本地 UI 进程运行
+  - 解决了 Windows 通过 SSH 连接远程 Linux 开发时插件无法读取本地 AI 对话记录的问题
+
+#### Documentation
+- 新增 `docs/REMOTE_SSH_SUPPORT.md` - Remote SSH 环境支持文档
+  - 详细说明了问题原因和解决方案
+  - 提供了验证方法和诊断工具使用指南
+  - 包含 VSCode Remote Extension 架构说明
 
 ---
 

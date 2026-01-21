@@ -7,7 +7,7 @@
 <h3 align="center">一键提取 Cursor AI 对话记录，轻松分享你的编程灵感</h3>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.0.6-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.0.8-blue" alt="Version">
   <img src="https://img.shields.io/badge/Cursor-Compatible-blue" alt="Cursor Compatible">
   <img src="https://img.shields.io/badge/VS%20Code-Compatible-blue" alt="VS Code Compatible">
   <img src="https://img.shields.io/badge/License-ISC-green" alt="License">
@@ -158,7 +158,14 @@ A: 请确认以下几点：
 > ```
 > 这会生成详细的诊断报告 (`workspace-diagnostic-report.json`)，可以发送给开发者分析。
 > 
+> **🔧 Remote SSH 用户特别说明**:
+> 
+> 如果你在 Windows 本地通过 SSH 连接到远程 Linux/Mac 服务器进行开发，请确保使用 **v0.0.8 或更高版本**。
+> 旧版本的插件会在远程服务器上运行，无法访问本地的 AI 对话记录数据库。
+> 新版本已修复此问题，插件会强制在本地运行，可以正常访问本地数据库。
+> 
 > 详细说明请参考：
+> - [Remote SSH 环境支持说明](./docs/REMOTE_SSH_SUPPORT.md)
 > - [Mac 和远程开发使用指南](./docs/MAC_REMOTE_TROUBLESHOOTING.md)
 > - [诊断工具使用说明](./diagnostics/README.md)
 
