@@ -3,8 +3,8 @@
  * 用于调试在Mac和远程开发环境下的路径定位问题
  */
 
-import { CursorDataLocator } from '../utils/cursorDataLocator';
-import { Logger } from '../utils/logger';
+import { CursorDataLocator } from '../src/utils/cursorDataLocator';
+import { Logger } from '../src/utils/logger';
 
 async function testWorkspacePathMatching() {
     console.log('='.repeat(80));

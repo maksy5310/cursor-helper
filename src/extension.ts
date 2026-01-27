@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { Logger } from './utils/logger';
 import { DataAccess } from './dataAccess/dataAccess';
-import { TestDataGenerator } from './testDataGenerator';
 import { discoverCursorDataCommand } from './commands/discoverCursorData';
 import { analyzeDatabaseCommand } from './commands/analyzeDatabase';
 import { openSessionMarkdownCommand } from './commands/openSessionMarkdown';
@@ -10,7 +9,6 @@ import { diagnoseLoginCommand } from './commands/diagnoseLogin';
 import { scanWorkspacesCommand } from './commands/scanWorkspaces';
 import { SessionListPanel } from './ui/sessionListPanel';
 import { DatabaseAccess } from './dataAccess/databaseAccess';
-import { runToolExtractionTests, testHtmlComments } from './test/toolExtractionTest';
 import { uploadRecordCommand } from './commands/uploadRecord';
 import { configureUploadCommand } from './commands/configureUpload';
 import { viewUploadHistoryCommand } from './commands/viewUploadHistory';
@@ -269,29 +267,6 @@ export async function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(openSessionMarkdownCmd);
 
-    // 注册工具数据提取测试命令（T054）
-    const testToolExtractionCmd = vscode.commands.registerCommand(
-        'cursor-assistant.testToolExtraction',
-        async () => {
-            try {
-                Logger.setLogLevel('debug'); // 临时启用 debug 级别以查看详细日志
-                Logger.info('开始运行工具数据提取测试...');
-                
-                // 运行测试
-                await runToolExtractionTests();
-                
-                // 测试 HTML 注释功能
-                testHtmlComments();
-                
-                Logger.setLogLevel('info'); // 恢复 info 级别
-                vscode.window.showInformationMessage('工具数据提取测试完成！请查看输出面板查看详细结果。');
-            } catch (error) {
-                Logger.error('测试执行失败', error as Error);
-                vscode.window.showErrorMessage(`测试执行失败: ${error instanceof Error ? error.message : String(error)}`);
-            }
-        }
-    );
-    context.subscriptions.push(testToolExtractionCmd);
 
     // 注册上传记录命令
     const uploadRecordCmd = vscode.commands.registerCommand(

@@ -3,8 +3,8 @@
  * T054: 测试修复后的工具数据提取逻辑，验证各种工具类型都能正确提取名称，不再显示 "Unknown Tool"
  */
 
-import { MarkdownRenderer } from '../ui/markdownRenderer';
-import { Logger } from '../utils/logger';
+import { MarkdownRenderer } from '../src/ui/markdownRenderer';
+import { Logger } from '../src/utils/logger';
 
 /**
  * 测试用例：各种工具数据格式

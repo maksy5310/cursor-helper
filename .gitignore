@@ -39,3 +39,20 @@ cursor-helper/
 # Temporary files (avatar cache)
 .temp/
 workspace-diagnostic-report.json
+data.csv
+data.txt
+IMPLEMENTATION_SUMMARY.md
+METRICS_DOCUMENTATION.md
+METRICS_FILTERING_SUMMARY.md
+session_sample.json
+SINGLE_TABLE_OPTIMIZATION.md
+tests/test-enhanced-real-data.ts
+tests/test-full-rendering-flow.ts
+tests/test-markdown-rendering.ts
+tests/test-metrics-extraction.ts
+tests/test-metrics-filtering.ts
+tests/test-mock-markdown.ts
+tests/test-real-composerdata.ts
+tests/test-real-data-filtering.ts
+tests/test-rendering-debug.ts
+tests/test-single-table-format.ts

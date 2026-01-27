@@ -8,7 +8,7 @@ import {
     isValidUTF8, 
     sanitizeForUpload,
     getSanitizationReport 
-} from '../utils/textSanitizer';
+} from '../src/utils/textSanitizer';
 
 /**
  * 运行所有测试
