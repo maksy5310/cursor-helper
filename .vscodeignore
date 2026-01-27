@@ -1,9 +1,12 @@
 # 编译输出目录不需要的文件
 src/**
 tests/**
+out/test/**
+out/testDataGenerator.js
+out/testDataGenerator.js.map
 # 排除所有 node_modules（使用 @vscode/sqlite3，无需打包 sql.js）
 node_modules/**
-*.map
+**/*.map
 
 # 开发配置文件
 .vscode/**
