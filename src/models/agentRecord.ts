@@ -39,6 +39,7 @@ export interface AgentContext {
     activeFiles?: string[];          // 活动文件列表
     projectStructure?: string[];     // 项目结构（可选）
     environment?: Record<string, string>;  // 环境变量（可选）
+    composerData?: any;              // 完整的 composer 数据（用于指标提取）
 }
 
 /**

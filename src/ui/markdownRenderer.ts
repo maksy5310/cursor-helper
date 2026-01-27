@@ -1,5 +1,6 @@
 import { AgentRecord } from '../models/agentRecord';
 import { MarkdownRendererOptions } from '../models/sessionMarkdown';
+import { SessionMetricsExtractor } from '../models/sessionMetrics';
 import { Logger } from '../utils/logger';
 
 /**
@@ -42,6 +43,32 @@ export class MarkdownRenderer implements IMarkdownRenderer {
         userMessageHeader: "## User",
         assistantMessageHeader: "## Assistant"
     };
+
+    /**
+     * 生成会话指标表格
+     * @param agentRecord Agent 对话记录
+     * @returns Markdown 格式的指标表格
+     */
+    private generateMetricsTable(agentRecord: AgentRecord): string {
+        try {
+            // 从agentRecord的context中获取composerData
+            const composerData = agentRecord.context?.composerData;
+            
+            if (!composerData) {
+                Logger.warn('No composerData found in agentRecord, metrics will be limited');
+                return '*No session metrics available*';
+            }
+
+            // 提取指标
+            const metrics = SessionMetricsExtractor.extractMetrics(composerData);
+            
+            // 生成指标表格
+            return SessionMetricsExtractor.generateMetricsTable(metrics);
+        } catch (error) {
+            Logger.error('Failed to generate metrics table', error as Error);
+            return '*Failed to generate metrics*';
+        }
+    }
 
     /**
      * 转义 Markdown 特殊字符
@@ -204,6 +231,13 @@ export class MarkdownRenderer implements IMarkdownRenderer {
         const sessionName = agentRecord.sessionId || 'Session';
         fragments.push(`# ${sessionName}`);
         fragments.push('');
+
+        // 添加会话指标表格
+        const metricsTable = this.generateMetricsTable(agentRecord);
+        if (metricsTable) {
+            fragments.push(metricsTable);
+            fragments.push(''); // 指标表格和内容之间空行
+        }
 
         // 检查是否有消息（空会话处理）
         if (!agentRecord.messages || agentRecord.messages.length === 0) {

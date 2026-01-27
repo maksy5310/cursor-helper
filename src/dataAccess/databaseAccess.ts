@@ -474,7 +474,9 @@ export class DatabaseAccess implements IDatabaseAccess {
                     filePaths: Array.from(filePaths).length > 0 ? Array.from(filePaths) : undefined,
                     context: {
                         workspacePath: composerData.context?.workspacePath || '',
-                        activeFiles: composerData.allAttachedFileCodeChunksUris || undefined
+                        activeFiles: composerData.allAttachedFileCodeChunksUris || undefined,
+                        // 添加完整的 composerData 用于指标提取
+                        composerData: composerData
                     },
                     statistics: {
                         suggestionCount: bubbles.filter((b: any) => b.type === 2).length,
