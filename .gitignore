@@ -38,3 +38,4 @@ cursor-helper/
 
 # Temporary files (avatar cache)
 .temp/
+workspace-diagnostic-report.json

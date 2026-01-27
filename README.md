@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/version-0.0.8-blue" alt="Version">
   <img src="https://img.shields.io/badge/Cursor-Compatible-blue" alt="Cursor Compatible">
   <img src="https://img.shields.io/badge/VS%20Code-Compatible-blue" alt="VS Code Compatible">
-  <img src="https://img.shields.io/badge/License-ISC-green" alt="License">
+  <img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License">
 </p>
 
 ---
@@ -232,7 +232,7 @@ A: 插件完全免费，开源在 GitHub 上。
 
 ## 📄 许可证
 
-ISC License
+Apache License 2.0
 
 ---
 
