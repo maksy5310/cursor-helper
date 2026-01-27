@@ -125,8 +125,6 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@repo/core": "*",
-    "@repo/ui": "*",
     "jose": "^5.0.0",
     "node-fetch": "^3.0.0"
   }
