@@ -45,7 +45,7 @@ export async function analyzeDatabaseCommand(): Promise<void> {
             await sqlite.connect();
 
             progress.report({ increment: 50, message: 'Analyzing structure...' });
-            const analysis = sqlite.analyzeDatabase();
+            const analysis = await sqlite.analyzeDatabase();
 
             progress.report({ increment: 100, message: 'Complete' });
 

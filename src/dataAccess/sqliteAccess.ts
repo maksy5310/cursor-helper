@@ -1,25 +1,53 @@
-import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
+import * as module_ from 'module';
 import { Logger } from '../utils/logger';
 import { UsageStatistics } from '../models/usageStats';
 import { AgentRecord } from '../models/agentRecord';
 
+// 使用 Cursor/VS Code 自带的 @vscode/sqlite3
+// 通过 createRequire 从 VS Code 的 node_modules 中加载
+const appRoot = vscode.env.appRoot;
+const vscodeNodeModules = path.join(appRoot, 'node_modules');
+const createRequire = module_.createRequire || (module_ as any).createRequireFromPath;
+const vscodeRequire = createRequire(vscodeNodeModules);
+const sqlite3 = vscodeRequire('@vscode/sqlite3');
+
+// 类型定义
+interface Sqlite3Database {
+    all(sql: string, params: any[], callback: (err: Error | null, rows?: any[]) => void): void;
+    get(sql: string, params: any[], callback: (err: Error | null, row?: any) => void): void;
+    run(sql: string, params: any[], callback: (err: Error | null) => void): void;
+    close(callback?: (err: Error | null) => void): void;
+}
+
+interface Sqlite3Module {
+    Database: {
+        new (filename: string, mode: number, callback?: (err: Error | null) => void): Sqlite3Database;
+    };
+    OPEN_READONLY: number;
+    OPEN_READWRITE: number;
+    OPEN_CREATE: number;
+}
+
+const sqlite3Typed = sqlite3 as Sqlite3Module;
+
 /**
  * SQLite 数据库访问实现
  * 直接访问 Cursor 的 state.vscdb 数据库文件
- * 使用 sql.js（纯 JavaScript SQLite 实现，无需原生模块）
+ * 使用 Cursor/VS Code 自带的 @vscode/sqlite3（原生 SQLite 绑定，支持大文件）
  */
 export class SQLiteAccess {
-    private db: SqlJsDatabase | null = null;
+    private db: Sqlite3Database | null = null;
     private dbPath: string;
-    private SQL: any = null;
 
     constructor(dbPath: string) {
         this.dbPath = dbPath;
     }
 
     /**
-     * 初始化 SQL.js 并连接数据库
+     * 连接数据库
      */
     async connect(): Promise<void> {
         if (this.db) {
@@ -27,22 +55,31 @@ export class SQLiteAccess {
         }
 
         try {
-            // 初始化 SQL.js
-            if (!this.SQL) {
-                this.SQL = await initSqlJs({
-                    // 可选：如果需要加载 wasm 文件，可以指定路径
-                    // locateFile: (file: string) => `https://sql.js.org/dist/${file}`
-                });
+            // 检查文件是否存在
+            if (!fs.existsSync(this.dbPath)) {
+                throw new Error(`Database file not found: ${this.dbPath}`);
             }
 
-            // 读取数据库文件到内存
-            const fileBuffer = fs.readFileSync(this.dbPath);
-            this.db = new this.SQL.Database(fileBuffer);
+            // 获取文件大小（用于日志）
+            const stats = fs.statSync(this.dbPath);
+            const fileSizeInBytes = stats.size;
+            const fileSizeInGB = fileSizeInBytes / (1024 * 1024 * 1024);
 
-            Logger.info(`Connected to SQLite database: ${this.dbPath}`);
+            // 打开数据库连接（只读模式）
+            this.db = await new Promise<Sqlite3Database>((resolve, reject) => {
+                const db = new sqlite3Typed.Database(this.dbPath, sqlite3Typed.OPEN_READONLY, (err: Error | null) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(db);
+                    }
+                });
+            });
+
+            Logger.info(`Connected to SQLite database: ${this.dbPath} (${fileSizeInGB.toFixed(2)} GB)`);
             
             // 测试连接
-            const tables = this.getTableNames();
+            const tables = await this.getTableNames();
             Logger.info(`Database contains ${tables.length} tables: ${tables.join(', ')}`);
         } catch (error) {
             Logger.error('Failed to connect to SQLite database', error as Error);
@@ -51,160 +88,151 @@ export class SQLiteAccess {
     }
 
     /**
-     * 获取所有表名
+     * 执行查询并返回所有结果
      */
-    getTableNames(): string[] {
+    private async queryAll(sql: string, params: any[] = []): Promise<any[]> {
         if (!this.db) {
             throw new Error('Database not connected');
         }
 
-        const result = this.db.exec(`
+        return new Promise((resolve, reject) => {
+            this.db!.all(sql, params, (err: Error | null, rows?: any[]) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows || []);
+                }
+            });
+        });
+    }
+
+    /**
+     * 执行查询并返回单行结果
+     */
+    private async queryGet(sql: string, params: any[] = []): Promise<any | undefined> {
+        if (!this.db) {
+            throw new Error('Database not connected');
+        }
+
+        return new Promise((resolve, reject) => {
+            this.db!.get(sql, params, (err: Error | null, row?: any) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(row);
+                }
+            });
+        });
+    }
+
+    /**
+     * 获取所有表名
+     */
+    async getTableNames(): Promise<string[]> {
+        if (!this.db) {
+            throw new Error('Database not connected');
+        }
+
+        const rows = await this.queryAll(`
             SELECT name FROM sqlite_master 
             WHERE type='table' AND name NOT LIKE 'sqlite_%'
             ORDER BY name
         `);
 
-        if (result.length === 0) {
-            return [];
-        }
-
-        return result[0].values.map((row: any[]) => row[0] as string);
+        return rows.map((row: any) => row.name as string);
     }
 
     /**
      * 获取表结构
      */
-    getTableSchema(tableName: string): Array<{ name: string; type: string; notnull: number; dflt_value: any; pk: number }> {
+    async getTableSchema(tableName: string): Promise<Array<{ name: string; type: string; notnull: number; dflt_value: any; pk: number }>> {
         if (!this.db) {
             throw new Error('Database not connected');
         }
 
-        const result = this.db.exec(`PRAGMA table_info(${tableName})`);
+        // 使用参数化查询防止 SQL 注入
+        const rows = await this.queryAll(`PRAGMA table_info(${this.escapeTableName(tableName)})`);
         
-        if (result.length === 0) {
-            return [];
+        return rows.map((row: any) => ({
+            name: row.name,
+            type: row.type,
+            notnull: row.notnull,
+            dflt_value: row.dflt_value,
+            pk: row.pk
+        }));
+    }
+
+    /**
+     * 转义表名（简单实现，仅用于 PRAGMA）
+     */
+    private escapeTableName(tableName: string): string {
+        // 简单的表名验证和转义
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
+            throw new Error(`Invalid table name: ${tableName}`);
         }
-
-        const columns = result[0].columns;
-        const values = result[0].values;
-
-        return values.map((row: any[]) => {
-            const obj: any = {};
-            columns.forEach((col: string, idx: number) => {
-                obj[col] = row[idx];
-            });
-            return {
-                name: obj.name,
-                type: obj.type,
-                notnull: obj.notnull,
-                dflt_value: obj.dflt_value,
-                pk: obj.pk
-            };
-        });
+        return tableName;
     }
 
     /**
      * 获取表的行数
      */
-    getTableRowCount(tableName: string): number {
+    async getTableRowCount(tableName: string): Promise<number> {
         if (!this.db) {
             throw new Error('Database not connected');
         }
 
-        const result = this.db.exec(`SELECT COUNT(*) as count FROM ${tableName}`);
-        
-        if (result.length === 0) {
-            return 0;
-        }
-
-        const values = result[0].values;
-        return values.length > 0 ? (values[0][0] as number) : 0;
+        const row = await this.queryGet(`SELECT COUNT(*) as count FROM ${this.escapeTableName(tableName)}`);
+        return row ? (row.count as number) : 0;
     }
 
     /**
      * 查询表数据（带限制）
      */
-    queryTable(tableName: string, limit: number = 10): any[] {
+    async queryTable(tableName: string, limit: number = 10): Promise<any[]> {
         if (!this.db) {
             throw new Error('Database not connected');
         }
 
-        const result = this.db.exec(`SELECT * FROM ${tableName} LIMIT ${limit}`);
-        
-        if (result.length === 0) {
-            return [];
-        }
-
-        const columns = result[0].columns;
-        const values = result[0].values;
-
-        return values.map((row: any[]) => {
-            const obj: any = {};
-            columns.forEach((col: string, idx: number) => {
-                obj[col] = row[idx];
-            });
-            return obj;
-        });
+        const rows = await this.queryAll(`SELECT * FROM ${this.escapeTableName(tableName)} LIMIT ?`, [limit]);
+        return rows;
     }
 
     /**
      * 执行自定义 SQL 查询
      */
-    query(sql: string, params?: any[]): any[] {
+    async query(sql: string, params?: any[]): Promise<any[]> {
         if (!this.db) {
             throw new Error('Database not connected');
         }
 
-        // sql.js 不支持参数化查询，需要手动替换参数
-        let finalSql = sql;
-        if (params && params.length > 0) {
-            params.forEach((param, index) => {
-                const value = typeof param === 'string' ? `'${param.replace(/'/g, "''")}'` : param;
-                finalSql = finalSql.replace('?', value.toString());
-            });
-        }
-
-        const result = this.db.exec(finalSql);
-        
-        if (result.length === 0) {
-            return [];
-        }
-
-        const columns = result[0].columns;
-        const values = result[0].values;
-
-        return values.map((row: any[]) => {
-            const obj: any = {};
-            columns.forEach((col: string, idx: number) => {
-                obj[col] = row[idx];
-            });
-            return obj;
-        });
+        // @vscode/sqlite3 支持参数化查询
+        const rows = await this.queryAll(sql, params || []);
+        return rows;
     }
 
     /**
      * 分析数据库结构
      */
-    analyzeDatabase(): {
+    async analyzeDatabase(): Promise<{
         tables: Array<{
             name: string;
             schema: Array<{ name: string; type: string; notnull: number; dflt_value: any; pk: number }>;
             rowCount: number;
             sampleData: any[];
         }>;
-    } {
+    }> {
         if (!this.db) {
             throw new Error('Database not connected');
         }
 
-        const tables = this.getTableNames();
+        const tables = await this.getTableNames();
         const analysis = {
-            tables: tables.map(tableName => ({
+            tables: await Promise.all(tables.map(async (tableName) => ({
                 name: tableName,
-                schema: this.getTableSchema(tableName),
-                rowCount: this.getTableRowCount(tableName),
-                sampleData: this.queryTable(tableName, 5)
-            }))
+                schema: await this.getTableSchema(tableName),
+                rowCount: await this.getTableRowCount(tableName),
+                sampleData: await this.queryTable(tableName, 5)
+            })))
         };
 
         return analysis;
@@ -221,8 +249,9 @@ export class SQLiteAccess {
 
         try {
             Logger.debug('Querying ItemTable for composer.composerData...');
-            const result = this.query(
-                "SELECT value FROM ItemTable WHERE key = 'composer.composerData' LIMIT 1"
+            const result = await this.query(
+                "SELECT value FROM ItemTable WHERE key = ? LIMIT 1",
+                ['composer.composerData']
             );
 
             Logger.debug(`Query returned ${result.length} rows`);
@@ -231,7 +260,7 @@ export class SQLiteAccess {
                 Logger.warn('composer.composerData not found in ItemTable');
                 // 尝试列出所有可用的 key 以便调试
                 try {
-                    const allKeys = this.query("SELECT key FROM ItemTable LIMIT 20");
+                    const allKeys = await this.query("SELECT key FROM ItemTable LIMIT 20");
                     Logger.debug(`Available keys in ItemTable (first 20): ${JSON.stringify(allKeys.map((r: any) => r.key))}`);
                 } catch (e) {
                     Logger.debug('Could not list ItemTable keys for debugging');
@@ -292,7 +321,7 @@ export class SQLiteAccess {
 
         try {
             const key = `composerData:${composerId}`;
-            const result = this.query(
+            const result = await this.query(
                 "SELECT value FROM CursorDiskKV WHERE key = ? LIMIT 1",
                 [key]
             );
@@ -325,7 +354,7 @@ export class SQLiteAccess {
 
         try {
             const key = `bubbleId:${composerId}:${bubbleId}`;
-            const result = this.query(
+            const result = await this.query(
                 "SELECT value FROM CursorDiskKV WHERE key = ? LIMIT 1",
                 [key]
             );
@@ -443,9 +472,14 @@ export class SQLiteAccess {
      */
     close(): void {
         if (this.db) {
-            this.db.close();
+            this.db.close((err: Error | null) => {
+                if (err) {
+                    Logger.error('Error closing database', err);
+                } else {
+                    Logger.info('SQLite database connection closed');
+                }
+            });
             this.db = null;
-            Logger.info('SQLite database connection closed');
         }
     }
 }

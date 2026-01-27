@@ -92,8 +92,14 @@ export class DatabaseAccess implements IDatabaseAccess {
 
             // 初始化工作空间数据库（如果存在）
             if (this.workspaceDbPath) {
-                this.workspaceDb = new SQLiteAccess(this.workspaceDbPath);
-                await this.workspaceDb.connect();
+                try {
+                    this.workspaceDb = new SQLiteAccess(this.workspaceDbPath);
+                    await this.workspaceDb.connect();
+                } catch (error) {
+                    // 工作空间数据库加载失败不影响全局数据库的使用
+                    Logger.warn('工作空间数据库加载失败，将仅使用全局数据库', error as Error);
+                    this.workspaceDb = null;
+                }
             }
 
             this.connected = true;
