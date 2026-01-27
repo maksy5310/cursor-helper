@@ -671,19 +671,62 @@ export class MarkdownRenderer implements IMarkdownRenderer {
         const rawArgs = this.safeParseJson(toolData.rawArgs);
         const params = this.safeParseJson(toolData.params);
         
-        // 提取 patch 字符串
-        const patch = rawArgs?.patch || params?.patch || '';
+        // 提取目标文件路径
+        // params 通常是 JSON 字符串，解析后包含 relativeWorkspacePath
+        // rawArgs 是包含补丁内容的字符串，格式为 "*** Begin Patch\n*** Update File: ...\n@@\n...\n*** End Patch"
+        let filePath = params?.relativeWorkspacePath || 
+                       params?.targetFile ||
+                       params?.target_file ||
+                       params?.filePath ||
+                       params?.file_path ||
+                       'Unknown file';
         
-        // 提取目标文件路径（检查多个可能的字段名）
-        const filePath = params?.targetFile ||
-                        params?.target_file ||
-                        params?.filePath ||
-                        params?.file_path ||
-                        rawArgs?.targetFile ||
-                        rawArgs?.target_file ||
-                        rawArgs?.filePath ||
-                        rawArgs?.file_path || 
-                        'Unknown file';
+        // 如果 filePath 还是未知，尝试从 rawArgs 字符串中提取
+        if (filePath === 'Unknown file' && typeof rawArgs === 'string') {
+            const updateFileMatch = rawArgs.match(/\*\*\* Update File:\s*(.+?)\n/);
+            if (updateFileMatch) {
+                filePath = updateFileMatch[1].trim();
+            }
+        }
+        
+        // 提取 patch 内容
+        let patch = '';
+        if (typeof rawArgs === 'string') {
+            // rawArgs 格式: "*** Begin Patch\n*** Update File: ...\n@@\n...patch content...\n*** End Patch"
+            // 提取 @@ 之后到 *** End Patch 之前的内容
+            const patchMatch = rawArgs.match(/@@\s*\n([\s\S]*?)\n\*\*\* End Patch/);
+            if (patchMatch) {
+                patch = patchMatch[1].trim();
+            } else {
+                // 如果没有找到标准格式，尝试提取整个内容（去掉头部标记）
+                const lines = rawArgs.split('\n');
+                let startIdx = -1;
+                let endIdx = lines.length;
+                
+                // 找到第一个 @@ 行
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].trim().startsWith('@@')) {
+                        startIdx = i;
+                        break;
+                    }
+                }
+                
+                // 找到 *** End Patch 行
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    if (lines[i].trim() === '*** End Patch') {
+                        endIdx = i;
+                        break;
+                    }
+                }
+                
+                if (startIdx >= 0 && endIdx > startIdx) {
+                    patch = lines.slice(startIdx, endIdx).join('\n');
+                }
+            }
+        } else if (rawArgs && typeof rawArgs === 'object') {
+            // 如果 rawArgs 是对象，尝试从对象中提取
+            patch = rawArgs.patch || '';
+        }
         
         fragments.push(`**目标文件**: \`${filePath}\``);
         fragments.push('');
