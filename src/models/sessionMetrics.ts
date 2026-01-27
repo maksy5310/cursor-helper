@@ -312,6 +312,10 @@ export class SessionMetricsExtractor {
 
         const fragments: string[] = [];
         
+        // 添加表格标题
+        fragments.push('## 会话指标');
+        fragments.push('');
+        
         // 生成单个包含分类的表格
         const headers = ['分类', '指标', '数值'];
         const rows: string[][] = [];
