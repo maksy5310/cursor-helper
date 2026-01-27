@@ -1258,6 +1258,49 @@ export class MarkdownRenderer implements IMarkdownRenderer {
     }
 
     /**
+     * 渲染网页抓取工具（web_fetch）
+     * T025: 处理 web_fetch 工具
+     * 
+     * 渲染策略：
+     * - Summary: 显示 URL
+     * - Details: 显示抓取的内容（Markdown 格式）
+     */
+    private renderWebFetchTool(toolData: any): string {
+        const fragments: string[] = [];
+        
+        // 安全解析 JSON 字符串（可能是 JSON 字符串）
+        const rawArgs = this.safeParseJson(toolData.rawArgs);
+        const params = this.safeParseJson(toolData.params);
+        const result = this.safeParseJson(toolData.result);
+        
+        // 提取 URL
+        const url = params?.url || rawArgs?.url || 'Unknown URL';
+        
+        // 提取抓取的内容
+        const markdown = result?.markdown || '';
+        const fetchedUrl = result?.url || url;
+        
+        // 生成 summary 标题
+        const summaryTitle = `🌐 Fetched web content: ${fetchedUrl}`;
+        
+        // 添加 URL 信息
+        fragments.push(`**URL**: ${fetchedUrl}`);
+        fragments.push(''); // 空行
+        
+        // 添加内容
+        if (markdown) {
+            fragments.push('**Content**:');
+            fragments.push(''); // 空行
+            fragments.push(markdown);
+        } else {
+            fragments.push('*无内容*');
+        }
+        
+        const content = fragments.join('\n');
+        return this.generateDetailsBlock(summaryTitle, content, toolData);
+    }
+
+    /**
      * 渲染拉取请求工具（fetch_pull_request）
      * T024: 处理 fetch_pull_request 工具
      */
@@ -2355,6 +2398,11 @@ export class MarkdownRenderer implements IMarkdownRenderer {
             if (this.matchesToolName(toolName, ['web_search'])) {
                 Logger.debug(`renderToolDetails: Matched web search tool, using renderWebSearchTool`);
                 return this.renderWebSearchTool(toolData);
+            }
+            
+            if (this.matchesToolName(toolName, ['web_fetch'])) {
+                Logger.debug(`renderToolDetails: Matched web fetch tool, using renderWebFetchTool`);
+                return this.renderWebFetchTool(toolData);
             }
             
             if (this.matchesToolName(toolName, ['grep', 'ripgrep', 'ripgrep_raw_search'])) {
