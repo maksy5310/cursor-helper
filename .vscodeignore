@@ -1,9 +1,8 @@
 # 编译输出目录不需要的文件
 src/**
 tests/**
-# 保留 sql.js 的运行时文件（需要 wasm）
+# 排除所有 node_modules（使用 @vscode/sqlite3，无需打包 sql.js）
 node_modules/**
-!node_modules/sql.js/**
 *.map
 
 # 开发配置文件
