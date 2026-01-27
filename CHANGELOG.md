@@ -8,7 +8,20 @@
 
 ### 待发布的变更
 
-#### Fixed
+---
+
+## [0.0.9] - 2026-01-26
+
+### Changed
+- 将 SQLite 数据库访问从 `sql.js` 迁移到 `@vscode/sqlite3`
+  - 使用 Cursor/VS Code 自带的 `@vscode/sqlite3` 库，无需在 package.json 中声明依赖
+  - 通过 `module.createRequire` 从 Cursor 的 node_modules 中加载预编译的二进制文件
+  - 支持超过 2GB 的数据库文件（解决了 sql.js 的 2GB 限制问题）
+
+### Fixed
+- 修复超过 2GB 的 SQLite 数据库文件无法加载的问题
+  - 之前使用 `sql.js` 时，超过 2GB 的数据库文件会报错：`RangeError: File size is greater than 2 GiB`
+  - 现在使用原生 SQLite 绑定，无文件大小限制
 - 修复 Remote SSH 环境下无法访问本地数据库的问题
   - 添加 `extensionKind: ["ui"]` 配置，强制插件在本地 UI 进程运行
   - 解决了 Windows 通过 SSH 连接远程 Linux 开发时插件无法读取本地 AI 对话记录的问题
@@ -18,6 +31,13 @@
   - 详细说明了问题原因和解决方案
   - 提供了验证方法和诊断工具使用指南
   - 包含 VSCode Remote Extension 架构说明
+
+---
+
+## [0.0.8] - 2026-01-23
+
+### Fixed
+- 修复超过 2GB 数据库文件的临时解决方案（添加文件大小检查和错误提示）
 
 ---
 
