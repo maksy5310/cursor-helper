@@ -140,6 +140,8 @@
 | `cursorSessionHelper.avatar` | 头像（预设名称或本地图片路径） | default |
 | `cursorSessionHelper.shareDirectory` | 分享存储目录 | `~/.cursor-session-helper/shares/` |
 | `cursorSessionHelper.autoStartServer` | 是否随插件激活自动启动服务器 | false |
+| `cursorSessionHelper.serverPort` | 本地 Web 服务器端口 | 8080 |
+| `cursorSessionHelper.shareBaseUrl` | 分享链接基础 URL（可设为局域网地址） | `http://localhost:{端口}` |
 
 ---
 

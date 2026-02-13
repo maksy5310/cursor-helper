@@ -5,9 +5,44 @@
 版本格式遵循[语义化版本](https://semver.org/lang/zh-CN/)规范。
  
 ## [Unreleased]
- 
+
 ### 待发布的变更
- 
+
+---
+
+## [1.0.25] - 2026-02-13
+
+### Added
+- 🌐 Web 服务器首页分页显示（每页 12 条，6 行 x 2 列），支持键盘导航
+- ⬆️ 详情页"返回顶部"浮动按钮，长页面一键滚动到顶部
+- 🛡️ 消息内容安全渲染：自动转义 `<script>` 标签和 `${...}` 模板字符串，防止页面结构被破坏
+- 🗑️ 首页右键删除会话功能（含确认对话框）
+- 📥 首页导入外部 Markdown 会话文件功能
+- 📑 侧边栏可拖动分隔条调整"会话列表"和"消息大纲"高度
+- 👤 自动获取系统用户名作为默认昵称（取代硬编码的"本地用户"）
+
+### Changed
+- 会话指标表格宽度调整为内容区域的 60%
+- 折叠/展开按钮改为默认可见，添加多重初始化保障（DOMContentLoaded + setTimeout + window.onload）
+- 侧边栏面板标题从"个人信息"更名为"基本信息"
+- 用户信息显示格式改为"用户 {username}"
+
+### Fixed
+- 修复详情页折叠/展开按钮在大页面上不显示或无功能的问题
+- 修复消息内容中引用的源代码（含 HTML/script 标签）破坏页面 JavaScript 的问题
+- 修复"返回顶部"按钮在滚动容器内定位不正确的问题
+- 修复 CSS 中 `width: max-content` 覆盖 `width: 100%` 导致表格宽度异常的问题
+- 修复页脚"Cursor Session Helper ©2026"显示在右侧而非底部的问题
+
+### Technical
+- 新增 `sanitizeForMarkdown()` 和 `sanitizeNonCodeContent()` 预处理函数
+- `balanceHtml()` 增加 script 标签转义机制
+- 新增 `localShareService.ts`、`shareSession.ts`、`localUserInfoTreeItem.ts` 等模块
+- 新增 Web 服务器（Express）：`app.ts`、`server.ts`、`serverManager.ts`
+- 新增 `homePage.ts`、`layout.ts`、`sharePage.ts` 视图模块
+- 78 个单元测试全部通过，核心模块覆盖率 88%+
+- 新增版本自动升级脚本 `scripts/version-bump.js`
+
 ---
 
 ## [0.1.15] - 2026-01-27
