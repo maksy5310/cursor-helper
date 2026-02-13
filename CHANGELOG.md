@@ -10,6 +10,26 @@
 
 ---
 
+## [1.0.27] - 2026-02-13
+
+### Fixed
+- 🔧 修复超长消息（>100K 字符）导致页面布局重叠错乱的严重问题
+  - **根因**：超长 AI 回复（7-15MB HTML）中包含大量引用自身源码的内容，直接嵌入 `<div style="display:none">` 时，浏览器解析 HTML 的隐式闭合规则导致多余的 `</div>` 关闭了外层 `.messages-list`、`.content-inner` 等容器，使后续消息卡片脱离正常 DOM 结构
+  - **修复方案（D: A+C 组合）**：
+    1. 超长消息完整内容改用 **base64 + `<script type="text/template">`** 存储，浏览器不解析其为 DOM，彻底避免 HTML 泄漏
+    2. 点击"加载完整内容"时通过 JavaScript 解码 base64 并动态注入 `innerHTML`
+    3. `balanceHtml` 函数 `blockTags` 新增 `code` 标签，修复不平衡的 `<code>` 标签吞没后续内容的问题
+    4. 新增 `containHtml` 二次净化函数，用栈扫描移除所有多余闭标签，补齐未闭合标签
+    5. 所有消息内容（包括预览、完整内容、正常内容）均经过 `containHtml` 保护
+
+### Technical
+- 新增 `containHtml()` 函数 - 基于栈的 HTML 标签闭合净化
+- 修改 `loadFullContent()` - 支持从 base64 模板解码并动态注入
+- 修改 `balanceHtml()` - blockTags 新增 `code` 标签
+- 修改消息渲染逻辑 - 所有 `balanceHtml()` 调用后增加 `containHtml()` 兜底
+
+---
+
 ## [1.0.26] - 2026-02-13
 
 ### Added

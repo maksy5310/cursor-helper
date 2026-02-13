@@ -108,16 +108,19 @@ export function renderSharePage(record: ShareRecord, allShares: ShareMetadata[])
         
         try {
             if (isLongContent) {
-                // T075: 懒加载方案 - 先显示预览，保留完整内容在隐藏区域
+                // T075: 懒加载方案 - 先显示预览，点击后动态加载完整内容
                 // A方案：智能截断 - 在代码块/段落边界处截断，避免切断代码块中间
                 const cutPoint = findSmartCutPoint(safeContent, PREVIEW_LENGTH);
                 const previewContent = safeContent.substring(0, cutPoint);
                 const previewParsed = marked.parse(previewContent) as string;
-                const previewHtml = balanceHtml(previewParsed);
+                const previewHtml = containHtml(balanceHtml(previewParsed));
                 
-                // 完整内容 - 必须执行 balanceHtml 确保 HTML 标签平衡，否则会破坏页面布局
+                // 完整内容 - 执行 balanceHtml + containHtml 确保 HTML 标签平衡
+                // 关键改进：将完整 HTML 编码为 base64 存储在 <script type="text/template"> 中，
+                // 避免浏览器解析超长 HTML 时因隐式闭合规则破坏外层 DOM 结构
                 const fullParsed = marked.parse(safeContent) as string;
-                const fullHtml = balanceHtml(fullParsed);
+                const fullHtml = containHtml(balanceHtml(fullParsed));
+                const fullHtmlBase64 = Buffer.from(fullHtml, 'utf-8').toString('base64');
                 
                 htmlContent = `
                     <div class="preview-content" id="preview-${idx}">${previewHtml}</div>
@@ -129,12 +132,13 @@ export function renderSharePage(record: ShareRecord, allShares: ShareMetadata[])
                             </button>
                         </div>
                     </div>
-                    <div class="full-content" id="full-${idx}" style="display:none;">${fullHtml}</div>
+                    <div class="full-content" id="full-${idx}" style="display:none;"></div>
+                    <script type="text/template" id="fullData-${idx}">${fullHtmlBase64}</script>
                 `;
             } else {
-                // 正常内容直接渲染 - 必须执行 balanceHtml 确保 HTML 标签平衡
+                // 正常内容直接渲染 - 必须执行 balanceHtml + containHtml 确保 HTML 标签平衡
                 const parsed = marked.parse(safeContent) as string;
-                htmlContent = balanceHtml(parsed);
+                htmlContent = containHtml(balanceHtml(parsed));
             }
         } catch (e) {
             htmlContent = `<p>${escapeHtml(msg.content.substring(0, 1000))}${msg.content.length > 1000 ? '...' : ''}</p>`;
@@ -197,7 +201,7 @@ export function renderSharePage(record: ShareRecord, allShares: ShareMetadata[])
     let fallbackContent = '';
     if (messages.length === 0) {
         try {
-            fallbackContent = balanceHtml(marked.parse(record.content) as string);
+            fallbackContent = containHtml(balanceHtml(marked.parse(record.content) as string));
         } catch {
             fallbackContent = `<pre>${escapeHtml(record.content)}</pre>`;
         }
@@ -481,6 +485,25 @@ export function renderSharePage(record: ShareRecord, allShares: ShareMetadata[])
             var noticeEl = previewEl ? previewEl.nextElementSibling : null;
             
             if (fullEl && previewEl) {
+                // 如果 full-content 为空，从 base64 模板中解码并注入
+                if (!fullEl.innerHTML || fullEl.innerHTML.trim() === '') {
+                    var templateEl = document.getElementById('fullData-' + idx);
+                    if (templateEl) {
+                        try {
+                            var decoded = atob(templateEl.textContent.trim());
+                            // 将 UTF-8 字节序列正确解码为字符串
+                            var bytes = new Uint8Array(decoded.length);
+                            for (var i = 0; i < decoded.length; i++) {
+                                bytes[i] = decoded.charCodeAt(i);
+                            }
+                            var text = new TextDecoder('utf-8').decode(bytes);
+                            fullEl.innerHTML = text;
+                        } catch (e) {
+                            fullEl.innerHTML = '<p style="color:red;">加载完整内容失败: ' + e.message + '</p>';
+                        }
+                    }
+                }
+                
                 // 显示完整内容，隐藏预览
                 previewEl.style.display = 'none';
                 if (noticeEl && noticeEl.classList.contains('lazy-load-notice')) {
@@ -632,8 +655,10 @@ export function renderSharePage(record: ShareRecord, allShares: ShareMetadata[])
  * 2. 补齐未闭合的开标签
  */
 function balanceHtml(html: string): string {
-    // 包含 summary 标签，因为分享内容中常有 <details><summary>...</summary>...</details> 结构
-    const blockTags = ['div', 'details', 'summary', 'section', 'article', 'aside', 'main', 'nav', 'figure', 'figcaption', 'pre', 'table', 'tbody', 'thead', 'tr'];
+    // 包含 summary 和 code 标签：
+    // - summary: 分享内容中常有 <details><summary>...</summary>...</details> 结构
+    // - code: 超长消息引用源码时可能产生不平衡的 <code> 标签，导致后续内容被吞入 <code> 元素
+    const blockTags = ['div', 'details', 'summary', 'section', 'article', 'aside', 'main', 'nav', 'figure', 'figcaption', 'pre', 'code', 'table', 'tbody', 'thead', 'tr'];
     
     // 第一遍：识别并移除多余的闭标签
     // 记录需要移除的闭标签位置
@@ -726,6 +751,63 @@ function balanceHtml(html: string): string {
     });
 
     return balanced;
+}
+
+/**
+ * 二次净化：确保一段 HTML 是"自包含"的，不会因为多余的闭标签破坏外层 DOM 结构。
+ * 
+ * 原理：使用栈模拟浏览器的标签匹配过程，逐个扫描所有标签。
+ * 遇到闭标签时如果栈中没有对应的开标签，说明这是"溢出"的闭标签，
+ * 将其替换为无害的 HTML 注释。
+ * 最后补齐栈中未闭合的开标签。
+ * 
+ * 此函数用于超长消息的 full-content HTML，是 balanceHtml 之后的安全兜底。
+ */
+function containHtml(html: string): string {
+    const protectedTags = ['div', 'details', 'summary', 'section', 'article', 'aside', 'main', 'nav', 'figure', 'figcaption', 'pre', 'code', 'table', 'tbody', 'thead', 'tr'];
+    
+    const tagRegex = /<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\/?>/g;
+    let m: RegExpExecArray | null;
+    
+    // 第一遍：用栈找出所有多余的闭标签位置
+    const stack: string[] = [];
+    const orphanClosePositions: Array<{start: number, length: number}> = [];
+    
+    while ((m = tagRegex.exec(html)) !== null) {
+        const fullTag = m[0];
+        const tagName = m[1].toLowerCase();
+        
+        if (!protectedTags.includes(tagName)) { continue; }
+        if (fullTag.endsWith('/>')) { continue; }
+        
+        if (fullTag.startsWith('</')) {
+            // 闭标签 — 找栈中匹配的开标签
+            const idx = stack.lastIndexOf(tagName);
+            if (idx >= 0) {
+                stack.splice(idx, 1); // 匹配成功，弹出
+            } else {
+                // 没有匹配的开标签 — 这是多余的闭标签，记录位置
+                orphanClosePositions.push({ start: m.index, length: fullTag.length });
+            }
+        } else {
+            stack.push(tagName);
+        }
+    }
+    
+    // 从后往前移除多余的闭标签（替换为 HTML 注释，避免索引偏移问题）
+    let result = html;
+    for (let i = orphanClosePositions.length - 1; i >= 0; i--) {
+        const pos = orphanClosePositions[i];
+        result = result.substring(0, pos.start) + `<!-- removed-orphan-close -->` + result.substring(pos.start + pos.length);
+    }
+    
+    // 补齐未闭合的开标签
+    while (stack.length > 0) {
+        const tag = stack.pop()!;
+        result += `</${tag}>`;
+    }
+    
+    return result;
 }
 
 /**

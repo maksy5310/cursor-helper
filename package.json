@@ -4,7 +4,7 @@
   "displayName": "Cursor Session Helper",
   "description": "支持提示词分享、提示词搜索、提示词收藏、提示词导出等功能",
   "icon": "resources/icon.png",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
