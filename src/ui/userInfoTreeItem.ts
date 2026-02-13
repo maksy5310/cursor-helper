@@ -25,7 +25,7 @@ export class UserInfoTreeItem extends vscode.TreeItem {
             
             // 点击打开个人中心
             this.command = {
-                command: 'cursor-assistant.openUserCenter',
+                command: 'cursor-session-helper.openUserCenter',
                 title: '打开个人中心'
             };
         } else {
@@ -38,7 +38,7 @@ export class UserInfoTreeItem extends vscode.TreeItem {
             
             // 点击触发登录
             this.command = {
-                command: 'cursor-assistant.login',
+                command: 'cursor-session-helper.login',
                 title: '登录'
             };
         }

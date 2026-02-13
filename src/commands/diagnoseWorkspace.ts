@@ -125,7 +125,7 @@ export async function diagnoseWorkspaceCommand(): Promise<void> {
             Logger.show();
         } else if (action === '查看文档') {
             // 构建文档路径
-            const extension = vscode.extensions.getExtension('Howell.cursor-assistant');
+            const extension = vscode.extensions.getExtension('TS-SW2.cursor-session-helper');
             if (extension) {
                 const docPath = vscode.Uri.file(
                     extension.extensionPath + '/docs/MAC_REMOTE_PATH_FIX.md'

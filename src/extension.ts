@@ -1,47 +1,60 @@
 import * as vscode from 'vscode';
 import { Logger } from './utils/logger';
 import { DataAccess } from './dataAccess/dataAccess';
-import { discoverCursorDataCommand } from './commands/discoverCursorData';
-import { analyzeDatabaseCommand } from './commands/analyzeDatabase';
 import { openSessionMarkdownCommand } from './commands/openSessionMarkdown';
 import { diagnoseWorkspaceCommand } from './commands/diagnoseWorkspace';
-import { diagnoseLoginCommand } from './commands/diagnoseLogin';
 import { scanWorkspacesCommand } from './commands/scanWorkspaces';
 import { SessionListPanel } from './ui/sessionListPanel';
 import { DatabaseAccess } from './dataAccess/databaseAccess';
-import { uploadRecordCommand } from './commands/uploadRecord';
-import { configureUploadCommand } from './commands/configureUpload';
-import { viewUploadHistoryCommand } from './commands/viewUploadHistory';
-import { AuthService } from './services/authService';
-import { loginCommand } from './commands/login';
-import { AuthUriHandler } from './utils/uriHandler';
-import { UserProfileService } from './services/userProfileService';
-import { AvatarLoader } from './utils/avatarLoader';
-import { UserInfoTreeDataProvider } from './ui/userInfoTreeItem';
-import { logoutCommand } from './commands/logout';
-import { openUserCenterCommand } from './commands/openUserCenter';
-import { refreshUserInfoCommand } from './commands/refreshUserInfo';
+import { LocalUserInfoTreeDataProvider } from './ui/localUserInfoTreeItem';
 import { WorkspaceHelper, WorkspaceInfo } from './utils/workspaceHelper';
-import { TokenManager } from './utils/tokenManager';
+import { LocalShareService } from './services/localShareService';
+import { WebServerManager } from './web-server/serverManager';
+import { shareSessionCommand } from './commands/shareSession';
 
 let sessionListPanel: SessionListPanel | null = null;
 let databaseAccess: DatabaseAccess | null = null;
-let authService: AuthService | null = null;
-let userProfileService: UserProfileService | null = null;
-let avatarLoader: AvatarLoader | null = null;
-let userInfoTreeDataProvider: UserInfoTreeDataProvider | null = null;
+let webServerManager: WebServerManager | null = null;
+let localShareService: LocalShareService | null = null;
+let userInfoTreeDataProvider: LocalUserInfoTreeDataProvider | null = null;
+
+/** 占位用会话列表提供程序：数据库不可用时显示提示，避免出现「没有可提供视图数据的已注册数据提供程序」 */
+class PlaceholderSessionListProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+    private _onDidChangeTreeData = new vscode.EventEmitter<vscode.TreeItem | undefined | null>();
+    readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+    getTreeItem(element: vscode.TreeItem): vscode.TreeItem { return element; }
+    getChildren(): vscode.TreeItem[] {
+        const item = new vscode.TreeItem('无法加载会话列表', vscode.TreeItemCollapsibleState.None);
+        item.description = '请查看输出日志';
+        item.tooltip = '数据访问或数据库未初始化。请打开输出面板，选择「Cursor Session Helper」查看具体错误。';
+        item.iconPath = new vscode.ThemeIcon('warning');
+        return [item];
+    }
+}
 
 /**
  * 扩展激活函数
  */
 export async function activate(context: vscode.ExtensionContext) {
-    // 初始化日志
-    Logger.initialize('Cursor Assistant');
-    Logger.setLogLevel('info'); // 使用 info 级别，减少不必要的 debug 日志
-    Logger.show(); // 自动显示日志输出面板
-    Logger.info('Cursor Assistant extension is activating...');
+    try {
+        return await doActivate(context);
+    } catch (error) {
+        Logger.error('Extension activation failed', error as Error);
+        vscode.window.showErrorMessage(
+            'Cursor Session Helper 激活失败，请打开输出面板选择「Cursor Session Helper」查看错误详情。'
+        );
+        throw error;
+    }
+}
 
-    // 获取工作空间信息（支持单根和多根工作空间）
+async function doActivate(context: vscode.ExtensionContext): Promise<void> {
+    // 初始化日志
+    Logger.initialize('Cursor Session Helper');
+    Logger.setLogLevel('info');
+    Logger.show();
+    Logger.info('Cursor Session Helper extension is activating...');
+
+    // 获取工作空间信息
     let workspaceInfo: WorkspaceInfo | null = null;
     try {
         workspaceInfo = await WorkspaceHelper.getWorkspaceInfo();
@@ -49,10 +62,9 @@ export async function activate(context: vscode.ExtensionContext) {
             Logger.debug(`Workspace type detected: ${workspaceInfo.type}, folders: ${workspaceInfo.folders.length}`);
         }
     } catch (error) {
-        Logger.warn('Failed to detect workspace info, falling back to first folder', error as Error);
+        Logger.warn('Failed to detect workspace info', error as Error);
     }
 
-    // 向后兼容：如果没有工作空间信息，使用第一个文件夹路径
     const workspacePath = workspaceInfo 
         ? (workspaceInfo.type === 'multi-root' && workspaceInfo.workspaceFile 
             ? workspaceInfo.workspaceFile 
@@ -60,339 +72,218 @@ export async function activate(context: vscode.ExtensionContext) {
         : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     
     if (!workspacePath) {
-        Logger.warn('No workspace folder found, data access may be limited');
+        Logger.warn('No workspace folder found');
     }
 
-    // 初始化认证服务
-    authService = new AuthService(context);
+    // 初始化本地分享服务
+    localShareService = new LocalShareService();
+    Logger.info('LocalShareService initialized');
 
-    // 初始化UserProfileService
-    userProfileService = new UserProfileService(context);
-    userProfileService.setTokenManager(authService.getTokenManager());
-    authService.setUserProfileService(userProfileService);
+    // 初始化 Web 服务器管理器
+    webServerManager = new WebServerManager(localShareService);
+    Logger.info('WebServerManager initialized');
 
-    // 初始化AvatarLoader
-    avatarLoader = new AvatarLoader(context);
-
-    // 初始化UserInfoTreeDataProvider
-    userInfoTreeDataProvider = new UserInfoTreeDataProvider();
-    const userInfoTreeView = vscode.window.createTreeView('cursor-assistant.userInfo', {
+    // 初始化本地用户信息面板
+    userInfoTreeDataProvider = new LocalUserInfoTreeDataProvider(webServerManager);
+    const userInfoTreeView = vscode.window.createTreeView('cursor-session-helper.userInfo', {
         treeDataProvider: userInfoTreeDataProvider,
         showCollapseAll: false
     });
     context.subscriptions.push(userInfoTreeView);
-    Logger.info('UserInfo TreeView registered');
+    Logger.info('LocalUserInfo TreeView registered');
 
-    // 监听用户资料更新事件
-    if (userProfileService && avatarLoader && userInfoTreeDataProvider) {
-        const profileSvc = userProfileService;
-        const avatarLdr = avatarLoader;
-        const treeProv = userInfoTreeDataProvider;
-        
-        userProfileService.onProfileUpdated(async (profile) => {
-            Logger.info('UserProfile updated, refreshing TreeView...');
-            let avatarUri: vscode.Uri | undefined;
-            if (profile && profile.email) {
-                avatarUri = await avatarLdr.loadAvatar(profile.email, profile.avatarUrl || undefined);
+    // 监听配置变化，刷新用户信息面板
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('cursorSessionHelper')) {
+                userInfoTreeDataProvider?.refresh();
             }
-            treeProv.refresh(profile, avatarUri);
-        });
-
-        // 初始加载用户信息 (T054)
-        (async () => {
-            // 初始化时调用getValidToken确保令牌有效
-            const token = await authService.getTokenManager().getValidToken();
-            if (token) {
-                Logger.info('Valid token found, fetching user profile from API...');
-                // 强制从 API 刷新用户信息，避免使用旧缓存
-                await profileSvc.refreshProfile();
-            }
-            
-            const profile = await profileSvc.getProfile();
-            Logger.info('User info refreshed successfully');
-            let avatarUri: vscode.Uri | undefined;
-            if (profile && profile.email) {
-                Logger.info(`Loading avatar for ${profile.email}, avatarUrl: ${profile.avatarUrl ? (profile.avatarUrl.startsWith('data:') ? 'Base64' : profile.avatarUrl.substring(0, 50) + '...') : 'none'}`);
-                avatarUri = await avatarLdr.loadAvatar(profile.email, profile.avatarUrl || undefined);
-            }
-            treeProv.refresh(profile, avatarUri);
-        })();
-    }
-
-    // 注册JWT URI Handler (处理 cursor://extension-id/auth/callback?token=xxx)
-    const extensionId = context.extension.id;
-    const uriScheme = vscode.env.uriScheme;
-    const authUriHandler = new AuthUriHandler(authService);
-    context.subscriptions.push(vscode.window.registerUriHandler(authUriHandler));
-    Logger.info(`JWT URI handler registered for ${uriScheme}://${extensionId}/auth/callback`);
-    Logger.info('Extension is ready to receive authentication callbacks');
+        })
+    );
 
     // 初始化数据访问层
     const dataAccess = new DataAccess();
     try {
-        // 传递工作空间信息以便匹配正确的工作空间数据库
-        // 如果workspaceInfo存在，优先使用；否则使用workspacePath（向后兼容）
         await dataAccess.initialize(workspaceInfo || workspacePath);
-        
-        // 获取内部的 DatabaseAccess 实例用于会话列表 panel
         databaseAccess = dataAccess.getDatabaseAccess();
     } catch (error) {
         Logger.warn('Data access initialization completed with warnings', error as Error);
     }
 
-    // 初始化会话列表 panel
-    if (databaseAccess && authService) {
+    // 初始化会话列表 panel（无需认证）；无数据库时仍注册占位提供程序，避免「没有可提供视图数据的已注册数据提供程序」
+    if (databaseAccess) {
         try {
-            // 创建会话列表 panel（不启动任何监视或轮询机制）
-            sessionListPanel = new SessionListPanel(databaseAccess, authService);
+            sessionListPanel = new SessionListPanel(databaseAccess);
             await sessionListPanel.initialize();
-
-            // 设置面板刷新回调
-            authService.setPanelRefreshCallback(async () => {
-                if (sessionListPanel) {
-                    await sessionListPanel.refresh();
-                }
-            });
-
             context.subscriptions.push(sessionListPanel);
             Logger.info('Session list panel initialized successfully');
 
-            // 监听工作空间文件夹变化事件
-            const workspaceChangeDisposable = vscode.workspace.onDidChangeWorkspaceFolders(async (event) => {
-                Logger.info('Workspace folders changed, clearing cache and refreshing session list');
-                
-                // 清除工作空间缓存
+            // 监听工作空间变化
+            const workspaceChangeDisposable = vscode.workspace.onDidChangeWorkspaceFolders(async () => {
                 WorkspaceHelper.clearCache();
-                
-                // 重新检测工作空间并刷新会话列表
-                const workspaceInfo = await WorkspaceHelper.getWorkspaceInfo();
                 if (sessionListPanel) {
                     await sessionListPanel.refresh();
                 }
-                
-                Logger.info(`Workspace changed: ${event.added.length} added, ${event.removed.length} removed`);
             });
             context.subscriptions.push(workspaceChangeDisposable);
-            Logger.info('Workspace change listener registered');
         } catch (error) {
             Logger.error('Failed to initialize session list panel', error as Error);
-            // 不阻止扩展激活，会话列表 panel 是可选的
+            const fallbackSessionView = vscode.window.createTreeView('cursor-session-helper.sessionList', {
+                treeDataProvider: new PlaceholderSessionListProvider(),
+                showCollapseAll: false
+            });
+            context.subscriptions.push(fallbackSessionView);
         }
+    } else {
+        const fallbackSessionView = vscode.window.createTreeView('cursor-session-helper.sessionList', {
+            treeDataProvider: new PlaceholderSessionListProvider(),
+            showCollapseAll: false
+        });
+        context.subscriptions.push(fallbackSessionView);
+        Logger.info('Session list view registered with placeholder (database not available)');
     }
 
-    // 注册测试数据生成命令（已废弃，保留用于向后兼容）
-    const generateTestDataCommand = vscode.commands.registerCommand(
-        'cursor-assistant.generateTestData',
-        async () => {
-            vscode.window.showWarningMessage('Test data generation is no longer supported. Data is read directly from Cursor database.');
+    // 注册命令：分享会话
+    const shareSessionCmd = vscode.commands.registerCommand(
+        'cursor-session-helper.shareSession',
+        async (item?: any) => {
+            if (databaseAccess && localShareService) {
+                const composerId = item?.composerId;
+                await shareSessionCommand(context, databaseAccess, localShareService, webServerManager, composerId);
+            } else {
+                vscode.window.showErrorMessage('数据库或分享服务未初始化');
+            }
         }
     );
-    context.subscriptions.push(generateTestDataCommand);
+    context.subscriptions.push(shareSessionCmd);
 
-    // 注册立即写入命令（已废弃，保留用于向后兼容）
-    const flushBufferCommand = vscode.commands.registerCommand(
-        'cursor-assistant.flushBuffer',
+    // 注册命令：启动服务器
+    const startServerCmd = vscode.commands.registerCommand(
+        'cursor-session-helper.startServer',
         async () => {
-            vscode.window.showWarningMessage('Buffer flushing is no longer needed. Data is read directly from Cursor database.');
+            if (webServerManager) {
+                await webServerManager.start();
+                userInfoTreeDataProvider?.refresh();
+                vscode.window.showInformationMessage(`本地服务器已启动: http://localhost:${webServerManager.getPort()}`);
+            }
         }
     );
-    context.subscriptions.push(flushBufferCommand);
+    context.subscriptions.push(startServerCmd);
 
-
-    // 注册发现 Cursor 数据文件命令
-    const discoverDataCommand = vscode.commands.registerCommand(
-        'cursor-assistant.discoverData',
+    // 注册命令：停止服务器
+    const stopServerCmd = vscode.commands.registerCommand(
+        'cursor-session-helper.stopServer',
         async () => {
-            await discoverCursorDataCommand();
+            if (webServerManager) {
+                await webServerManager.stop();
+                userInfoTreeDataProvider?.refresh();
+                vscode.window.showInformationMessage('本地服务器已停止');
+            }
         }
     );
-    context.subscriptions.push(discoverDataCommand);
+    context.subscriptions.push(stopServerCmd);
 
-    // 注册分析数据库命令
-    const analyzeDbCommand = vscode.commands.registerCommand(
-        'cursor-assistant.analyzeDatabase',
+    // 注册命令：重启服务器（自动杀掉占用端口的进程）
+    const restartServerCmd = vscode.commands.registerCommand(
+        'cursor-session-helper.restartServer',
         async () => {
-            await analyzeDatabaseCommand();
+            if (webServerManager) {
+                try {
+                    if (webServerManager.isRunning()) {
+                        await webServerManager.stop();
+                    }
+                    await webServerManager.forceStart();
+                    userInfoTreeDataProvider?.refresh();
+                    vscode.window.showInformationMessage(`服务器已重启: http://localhost:${webServerManager.getPort()}`);
+                } catch (err: any) {
+                    vscode.window.showErrorMessage(`服务器重启失败: ${err.message || err}`);
+                }
+            }
         }
     );
-    context.subscriptions.push(analyzeDbCommand);
+    context.subscriptions.push(restartServerCmd);
 
-    // 注册诊断工作空间命令
+    // 注册命令：打开 WebUI 页面
+    const openWebUICmd = vscode.commands.registerCommand(
+        'cursor-session-helper.openWebUI',
+        async () => {
+            if (webServerManager && webServerManager.isRunning()) {
+                const url = `http://localhost:${webServerManager.getPort()}`;
+                vscode.env.openExternal(vscode.Uri.parse(url));
+            } else {
+                const action = await vscode.window.showWarningMessage(
+                    '服务器未运行，是否先启动服务器？',
+                    '启动并打开', '取消'
+                );
+                if (action === '启动并打开' && webServerManager) {
+                    await webServerManager.forceStart();
+                    userInfoTreeDataProvider?.refresh();
+                    const url = `http://localhost:${webServerManager.getPort()}`;
+                    vscode.env.openExternal(vscode.Uri.parse(url));
+                }
+            }
+        }
+    );
+    context.subscriptions.push(openWebUICmd);
+
+    // 注册命令：诊断工作空间
     const diagnoseWorkspaceCmd = vscode.commands.registerCommand(
-        'cursor-assistant.diagnoseWorkspace',
-        async () => {
-            await diagnoseWorkspaceCommand();
-        }
+        'cursor-session-helper.diagnoseWorkspace',
+        async () => { await diagnoseWorkspaceCommand(); }
     );
     context.subscriptions.push(diagnoseWorkspaceCmd);
 
-    // 注册诊断登录命令
-    const diagnoseLoginCmd = vscode.commands.registerCommand(
-        'cursor-assistant.diagnoseLogin',
-        async () => {
-            await diagnoseLoginCommand(context);
-        }
-    );
-    context.subscriptions.push(diagnoseLoginCmd);
-
-    // 注册扫描工作空间命令
+    // 注册命令：扫描工作空间
     const scanWorkspacesCmd = vscode.commands.registerCommand(
-        'cursor-assistant.scanWorkspaces',
-        async () => {
-            await scanWorkspacesCommand(context);
-        }
+        'cursor-session-helper.scanWorkspaces',
+        async () => { await scanWorkspacesCommand(context); }
     );
     context.subscriptions.push(scanWorkspacesCmd);
 
-    // 注册显示日志命令
-    const showLogsCommand = vscode.commands.registerCommand(
-        'cursor-assistant.showLogs',
-        () => {
-            Logger.show();
-            vscode.window.showInformationMessage('Logs are now visible in the Output panel. Select "Cursor Assistant" from the dropdown.');
-        }
-    );
-    context.subscriptions.push(showLogsCommand);
-
-    // 注册打开会话 Markdown 视图命令
+    // 注册命令：打开会话 Markdown
     const openSessionMarkdownCmd = vscode.commands.registerCommand(
-        'cursor-assistant.openSessionMarkdown',
+        'cursor-session-helper.openSessionMarkdown',
         async (composerId: string) => {
             if (databaseAccess) {
                 await openSessionMarkdownCommand(databaseAccess, composerId);
-            } else {
-                vscode.window.showErrorMessage('Database access is not available. Please ensure Cursor is properly configured.');
             }
         }
     );
     context.subscriptions.push(openSessionMarkdownCmd);
 
-
-    // 注册上传记录命令
-    const uploadRecordCmd = vscode.commands.registerCommand(
-        'cursor-assistant.uploadRecord',
-        async (composerId?: string) => {
-            await uploadRecordCommand(context, null, databaseAccess, composerId, userProfileService);
-        }
+    // 注册显示日志命令
+    const showLogsCommand = vscode.commands.registerCommand(
+        'cursor-session-helper.showLogs',
+        () => { Logger.show(); }
     );
-    context.subscriptions.push(uploadRecordCmd);
+    context.subscriptions.push(showLogsCommand);
 
-    // 注册配置上传命令
-    const configureUploadCmd = vscode.commands.registerCommand(
-        'cursor-assistant.configureUpload',
-        async () => {
-            await configureUploadCommand(context);
+    // 自动启动服务器（如果配置了）
+    const autoStart = vscode.workspace.getConfiguration('cursorSessionHelper').get<boolean>('autoStartServer', false);
+    if (autoStart && webServerManager) {
+        try {
+            await webServerManager.start();
+            Logger.info('Web server auto-started');
+            userInfoTreeDataProvider?.refresh();
+        } catch (error) {
+            Logger.error('Failed to auto-start web server', error as Error);
         }
-    );
-    context.subscriptions.push(configureUploadCmd);
+    }
 
-    // 注册查看上传历史命令
-    const viewUploadHistoryCmd = vscode.commands.registerCommand(
-        'cursor-assistant.viewUploadHistory',
-        async () => {
-            await viewUploadHistoryCommand(context);
-        }
-    );
-    context.subscriptions.push(viewUploadHistoryCmd);
-
-    // 注册登录命令
-    const loginCmd = vscode.commands.registerCommand(
-        'cursor-assistant.login',
-        async () => {
-            if (authService) {
-                await loginCommand(authService);
-            }
-        }
-    );
-    context.subscriptions.push(loginCmd);
-
-    // 注册登出命令
-    const logoutCmd = vscode.commands.registerCommand(
-        'cursor-assistant.logout',
-        async () => {
-            if (authService) {
-                await logoutCommand(authService);
-            }
-        }
-    );
-    context.subscriptions.push(logoutCmd);
-
-    // 注册打开个人中心命令
-    const openUserCenterCmd = vscode.commands.registerCommand(
-        'cursor-assistant.openUserCenter',
-        async () => {
-            await openUserCenterCommand(context);
-        }
-    );
-    context.subscriptions.push(openUserCenterCmd);
-
-    // 注册刷新用户信息命令
-    const refreshUserInfoCmd = vscode.commands.registerCommand(
-        'cursor-assistant.refreshUserInfo',
-        async () => {
-            if (userProfileService) {
-                await refreshUserInfoCommand(userProfileService);
-            }
-        }
-    );
-    context.subscriptions.push(refreshUserInfoCmd);
-
-    // 注册测试 URI handler 命令（用于调试）
-    const testUriHandlerCmd = vscode.commands.registerCommand(
-        'cursor-assistant.testUriHandler',
-        async () => {
-            // 模拟一个 URI 回调来测试 handler
-            Logger.info('=== Testing URI Handler ===');
-            Logger.info(`Extension ID: ${context.extension.id}`);
-            Logger.info(`URI Scheme: ${vscode.env.uriScheme}`);
-            
-            const testUri = vscode.Uri.parse(`${vscode.env.uriScheme}://${context.extension.id}/auth/callback?token=test-token-12345`);
-            Logger.info('Testing URI handler with test URI...');
-            Logger.info('Note: This will attempt to process the callback, but the token will be rejected as invalid');
-            // 直接调用authUriHandler处理
-            await authUriHandler.handleUri(testUri);
-            vscode.window.showInformationMessage('URI Handler test completed. Check Output panel.');
-        }
-    );
-    context.subscriptions.push(testUriHandlerCmd);
-    
-    // 添加显示插件状态命令
-    const showStatusCmd = vscode.commands.registerCommand(
-        'cursor-assistant.showStatus',
-        async () => {
-            Logger.info('=== Extension Status ===');
-            Logger.info(`Extension ID: ${context.extension.id}`);
-            Logger.info(`URI Scheme: ${vscode.env.uriScheme}`);
-            Logger.info(`Expected callback URI: ${vscode.env.uriScheme}://${context.extension.id}/auth/callback`);
-            
-            const tokenMgr = new TokenManager(context);
-            const token = await tokenMgr.getToken();
-            Logger.info(`Token exists: ${!!token}`);
-            
-            const profile = await context.workspaceState.get('userProfile');
-            Logger.info(`Profile exists: ${!!profile}`);
-            
-            vscode.window.showInformationMessage(
-                `Extension Status:\n` +
-                `Extension ID: ${context.extension.id}\n` +
-                `URI Scheme: ${vscode.env.uriScheme}\n` +
-                `Token: ${token ? 'Yes' : 'No'}\n` +
-                `Profile: ${profile ? 'Yes' : 'No'}\n\n` +
-                `Expected URI: ${vscode.env.uriScheme}://${context.extension.id}/auth/callback\n\n` +
-                `Check Output panel for details.`
-            );
-        }
-    );
-    context.subscriptions.push(showStatusCmd);
-
-    Logger.info('Cursor Assistant extension activated successfully');
+    Logger.info('Cursor Session Helper extension activated successfully');
 }
 
 /**
  * 扩展停用函数
  */
 export async function deactivate() {
-    Logger.info('Cursor Assistant extension is deactivating...');
+    Logger.info('Cursor Session Helper extension is deactivating...');
+
+    // 停止 Web 服务器
+    if (webServerManager) {
+        await webServerManager.stop();
+        webServerManager = null;
+    }
 
     if (sessionListPanel) {
         sessionListPanel.dispose();

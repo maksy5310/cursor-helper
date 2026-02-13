@@ -1,20 +1,19 @@
 {
-  "name": "cursor-assistant", 
-  "publisher": "Howell",
-  "displayName": "提示词分享助手",
-  "description": "支持提示词分享、提示词搜索、提示词收藏、提示词导出等功能  ",
+  "name": "cursor-session-helper",
+  "publisher": "TS-SW2",
+  "displayName": "Cursor Session Helper",
+  "description": "支持提示词分享、提示词搜索、提示词收藏、提示词导出等功能",
   "icon": "resources/icon.png",
-  "version": "0.1.15",
-
+  "version": "1.0.25",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/howelljiang/cursor-helper.git"
+    "url": "https://github.com/maksy5310/cursor-helper.git"
   },
   "bugs": {
-    "url": "https://github.com/howelljiang/cursor-helper/issues"
+    "url": "https://github.com/maksy5310/cursor-helper/issues"
   },
-  "homepage": "https://github.com/howelljiang/cursor-helper#readme",
+  "homepage": "https://github.com/maksy5310/cursor-helper#readme",
   "keywords": [
     "cursor",
     "vscode",
@@ -39,64 +38,96 @@
   "contributes": {
     "commands": [
       {
-        "command": "cursor-assistant.configureUpload",
-        "title": "配置 Base URL",
-        "category": "Cursor Assistant"
+        "command": "cursor-session-helper.shareSession",
+        "title": "分享会话",
+        "category": "Cursor Session Helper"
       },
       {
-        "command": "cursor-assistant.viewUploadHistory",
-        "title": "查看上传历史",
-        "category": "Cursor Assistant"
+        "command": "cursor-session-helper.startServer",
+        "title": "启动本地服务器",
+        "category": "Cursor Session Helper"
       },
       {
-        "command": "cursor-assistant.login",
-        "title": "登录",
-        "category": "Cursor Assistant"
+        "command": "cursor-session-helper.stopServer",
+        "title": "停止本地服务器",
+        "category": "Cursor Session Helper"
       },
       {
-        "command": "cursor-assistant.logout",
-        "title": "退出登录",
-        "category": "Cursor Assistant"
+        "command": "cursor-session-helper.restartServer",
+        "title": "重启本地服务器",
+        "category": "Cursor Session Helper",
+        "icon": "$(debug-restart)"
       },
       {
-        "command": "cursor-assistant.openUserCenter",
-        "title": "打开个人中心",
-        "category": "Cursor Assistant"
+        "command": "cursor-session-helper.openWebUI",
+        "title": "打开 WebUI 页面",
+        "category": "Cursor Session Helper",
+        "icon": "$(globe)"
       },
       {
-        "command": "cursor-assistant.diagnoseWorkspace",
+        "command": "cursor-session-helper.diagnoseWorkspace",
         "title": "诊断工作空间路径",
-        "category": "Cursor Assistant"
+        "category": "Cursor Session Helper"
       },
       {
-        "command": "cursor-assistant.diagnoseLogin",
-        "title": "诊断登录问题",
-        "category": "Cursor Assistant"
-      },
-      {
-        "command": "cursor-assistant.scanWorkspaces",
+        "command": "cursor-session-helper.scanWorkspaces",
         "title": "扫描所有工作空间",
-        "category": "Cursor Assistant"
+        "category": "Cursor Session Helper"
       }
     ],
+    "configuration": {
+      "title": "Cursor Session Helper",
+      "properties": {
+        "cursorSessionHelper.nickname": {
+          "type": "string",
+          "default": "",
+          "description": "显示的用户昵称。留空则使用当前系统用户名"
+        },
+        "cursorSessionHelper.avatar": {
+          "type": "string",
+          "default": "default",
+          "description": "头像设置。可选值: default, robot, cat, dog, star，或本地图片绝对路径"
+        },
+        "cursorSessionHelper.shareDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "分享文件存储目录。为空时默认使用用户主目录下的 .cursor-session-helper/shares"
+        },
+        "cursorSessionHelper.autoStartServer": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否在插件激活时自动启动本地 Web 服务器"
+        },
+        "cursorSessionHelper.serverPort": {
+          "type": "number",
+          "default": 8080,
+          "description": "本地 Web 服务器端口"
+        },
+        "cursorSessionHelper.shareBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "分享链接的基础 URL。为空时默认使用 http://localhost:{端口}。可设置为其他地址如 http://192.168.1.100:8080"
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "cursor-assistant",
-          "title": "Cursor Assistant",
+          "id": "cursor-session-helper",
+          "title": "Cursor Session Helper",
           "icon": "$(references)"
         }
       ]
     },
     "views": {
-      "cursor-assistant": [
+      "cursor-session-helper": [
         {
-          "id": "cursor-assistant.userInfo",
-          "name": "个人信息",
+          "id": "cursor-session-helper.userInfo",
+          "name": "基本信息",
           "when": "true"
         },
         {
-          "id": "cursor-assistant.sessionList",
+          "id": "cursor-session-helper.sessionList",
           "name": "Sessions",
           "when": "true"
         }
@@ -105,9 +136,9 @@
     "menus": {
       "view/item/context": [
         {
-          "command": "cursor-assistant.logout",
-          "when": "view == cursor-assistant.userInfo && viewItem == userInfo-loggedIn",
-          "group": "inline"
+          "command": "cursor-session-helper.shareSession",
+          "when": "view == cursor-session-helper.sessionList",
+          "group": "share@1"
         }
       ]
     }
@@ -117,16 +148,28 @@
     "compile": "tsc -p ./",
     "copy-config": "node -e \"require('fs').cpSync('src/config.json', 'out/config.json')\"",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && node ./out/test/runTest.js"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "version:patch": "node scripts/version-bump.js",
+    "build": "npm run version:patch && npm run compile && npm run copy-config",
+    "package": "npx vsce package -o ../../Output/",
+    "start:server": "node out/web-server/server.js"
   },
   "devDependencies": {
+    "@types/express": "^5.0.0",
     "@types/node": "^20.19.26",
+    "@types/uuid": "^10.0.0",
     "@types/vscode": "^1.74.0",
+    "@vitest/coverage-v8": "^4.0.18",
     "@vscode/test-electron": "^2.3.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
+    "express": "^4.21.0",
     "jose": "^5.0.0",
-    "node-fetch": "^3.0.0"
+    "marked": "^15.0.0",
+    "node-fetch": "^3.0.0",
+    "uuid": "^11.0.0"
   }
 }

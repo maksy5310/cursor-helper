@@ -136,4 +136,34 @@ describe('WorkspaceHelper', () => {
             expect(result).toEqual([]);
         });
     });
+
+    describe('getSystemUsername', () => {
+        it('应返回非空字符串', () => {
+            const username = WorkspaceHelper.getSystemUsername();
+            expect(username).toBeTruthy();
+            expect(username.length).toBeGreaterThan(0);
+        });
+
+        it('应返回合理的用户名格式', () => {
+            const username = WorkspaceHelper.getSystemUsername();
+            expect(username).not.toBe('');
+            expect(typeof username).toBe('string');
+            // 用户名不应该包含明显非法字符
+            expect(username).not.toContain('\n');
+            expect(username).not.toContain('\r');
+        });
+
+        it('应与 os.userInfo().username 一致', () => {
+            const os = require('os');
+            const expected = os.userInfo().username;
+            const username = WorkspaceHelper.getSystemUsername();
+            expect(username).toBe(expected);
+        });
+
+        it('不应返回"本地用户"硬编码值（当系统有用户名时）', () => {
+            const username = WorkspaceHelper.getSystemUsername();
+            // 在正常系统环境下，不应回退到硬编码值
+            expect(username).not.toBe('本地用户');
+        });
+    });
 });

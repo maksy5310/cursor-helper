@@ -13,6 +13,6 @@
     "resolveJsonModule": true,
     "types": ["node", "vscode"]
   },
-  "exclude": ["node_modules", ".vscode-test", "tests", "session_sample.json","data.csv","data.txt"]
+  "exclude": ["node_modules", ".vscode-test", "tests", "session_sample.json","data.csv","data.txt","vitest.config.ts","scripts"]
 }
 

@@ -83,7 +83,7 @@ export class TokenManager {
                 // 提示用户重新登录
                 vscode.window.showWarningMessage('登录已过期,请重新登录', '登录').then(selection => {
                     if (selection === '登录') {
-                        vscode.commands.executeCommand('cursor-assistant.login');
+                        vscode.commands.executeCommand('cursor-session-helper.login');
                     }
                 });
                 

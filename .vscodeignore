@@ -4,8 +4,16 @@ tests/**
 out/test/**
 out/testDataGenerator.js
 out/testDataGenerator.js.map
-# 排除所有 node_modules（使用 @vscode/sqlite3，无需打包 sql.js）
-node_modules/**
+# 选择性排除 node_modules 中的开发依赖和不必要的文件
+# 保留运行时依赖: express, marked, uuid 及其子依赖
+node_modules/.package-lock.json
+node_modules/@types/**
+node_modules/@vscode/test-electron/**
+node_modules/typescript/**
+node_modules/vitest/**
+node_modules/@vitest/**
+node_modules/vite/**
+node_modules/esbuild/**
 **/*.map
 
 # 开发配置文件
@@ -23,6 +31,9 @@ specs/**
 docs/**
 # 诊断报告
 diagnostics/**
+
+# 测试覆盖率报告
+coverage/**
 
 # Git 相关
 .git/**

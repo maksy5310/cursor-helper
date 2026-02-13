@@ -156,7 +156,7 @@ export class UploadFormPanel implements IUploadFormPanel {
                     await this.handlePreviewMarkdown(message.data.content);
                     break;
                 case 'configure':
-                    await vscode.commands.executeCommand('cursor-assistant.configureUpload');
+                    await vscode.commands.executeCommand('cursor-session-helper.configureUpload');
                     break;
                 case 'requestAutoFill':
                     await this.handleRequestAutoFill();
@@ -547,7 +547,7 @@ export class UploadFormPanel implements IUploadFormPanel {
                     '立即配置'
                 );
                 if (action === '立即配置') {
-                    await vscode.commands.executeCommand('cursor-assistant.configureUpload');
+                    await vscode.commands.executeCommand('cursor-session-helper.configureUpload');
                 }
                 return;
             }

@@ -1187,11 +1187,12 @@ export class MarkdownRenderer implements IMarkdownRenderer {
     /**
      * 渲染网络搜索工具（web_search）
      * T023: 处理 web_search 工具
+     * T075: 改为折叠方案，保留完整内容，长结果可折叠
      * 
      * 渲染策略：
      * - Summary: 显示搜索词 + 结果数
-     * - Details: 使用编号列表展示每条结果（标题 + URL + 完整内容）
-     * - 不截断内容，保留原始格式
+     * - Details: 使用编号列表展示每条结果（标题 + URL + 内容）
+     * - 长结果可折叠展开
      */
     private renderWebSearchTool(toolData: any): string {
         const fragments: string[] = [];
@@ -1218,8 +1219,11 @@ export class MarkdownRenderer implements IMarkdownRenderer {
         // 生成 summary 标题
         const summaryTitle = `🔍 Searched web: ${searchTerm} • ${references.length} result(s)`;
         
+        // T075: 折叠阈值
+        const FOLD_THRESHOLD = 2000;
+        
         if (references.length > 0) {
-            // 渲染为编号列表，每条结果包含完整内容
+            // 渲染为编号列表，每条结果包含完整内容（长内容可折叠）
             for (let i = 0; i < references.length; i++) {
                 const ref = references[i];
                 const index = i + 1;
@@ -1237,9 +1241,25 @@ export class MarkdownRenderer implements IMarkdownRenderer {
                     fragments.push(''); // 空行
                 }
                 
-                // 内容（保留完整格式）
+                // 内容（长内容可折叠）
                 if (content) {
-                    fragments.push(content);
+                    const isLong = content.length > FOLD_THRESHOLD;
+                    
+                    if (isLong) {
+                        // 长内容：预览 + 折叠
+                        const preview = content.substring(0, 500);
+                        fragments.push(preview);
+                        fragments.push('...');
+                        fragments.push('');
+                        fragments.push('<details class="lazy-content" data-content-type="search-result">');
+                        fragments.push('<summary>📖 展开完整内容（' + content.length.toLocaleString() + ' 字符）</summary>');
+                        fragments.push('');
+                        fragments.push(content);
+                        fragments.push('</details>');
+                    } else {
+                        // 短内容：直接显示
+                        fragments.push(content);
+                    }
                 }
                 
                 // 结果之间添加空行分隔
@@ -1260,10 +1280,11 @@ export class MarkdownRenderer implements IMarkdownRenderer {
     /**
      * 渲染网页抓取工具（web_fetch）
      * T025: 处理 web_fetch 工具
+     * T075: 改为折叠方案，保留完整内容，长内容默认折叠
      * 
      * 渲染策略：
      * - Summary: 显示 URL
-     * - Details: 显示抓取的内容（Markdown 格式）
+     * - Details: 显示抓取的内容（长内容可折叠）
      */
     private renderWebFetchTool(toolData: any): string {
         const fragments: string[] = [];
@@ -1289,9 +1310,33 @@ export class MarkdownRenderer implements IMarkdownRenderer {
         
         // 添加内容
         if (markdown) {
-            fragments.push('**Content**:');
+            // T075: 折叠方案 - 长内容默认折叠
+            const FOLD_THRESHOLD = 10000;
+            const isLong = markdown.length > FOLD_THRESHOLD;
+            
+            // 显示内容长度信息
+            fragments.push(`**内容长度**: ${markdown.length.toLocaleString()} 字符`);
             fragments.push(''); // 空行
-            fragments.push(markdown);
+            
+            if (isLong) {
+                // 长内容：预览 + 折叠的完整内容
+                const preview = markdown.substring(0, 1000);
+                fragments.push('**Content Preview**:');
+                fragments.push(''); // 空行
+                fragments.push(preview);
+                fragments.push('...');
+                fragments.push('');
+                fragments.push('<details class="lazy-content" data-content-type="web-content">');
+                fragments.push('<summary>🌐 点击展开完整内容（' + markdown.length.toLocaleString() + ' 字符）</summary>');
+                fragments.push('');
+                fragments.push(markdown);
+                fragments.push('</details>');
+            } else {
+                // 短内容：直接显示
+                fragments.push('**Content**:');
+                fragments.push(''); // 空行
+                fragments.push(markdown);
+            }
         } else {
             fragments.push('*无内容*');
         }
@@ -1342,6 +1387,7 @@ export class MarkdownRenderer implements IMarkdownRenderer {
     /**
      * 渲染读取文件工具（read_file, read_file_v2, copilot_readFile）
      * T025: 处理 read_file, read_file_v2, copilot_readFile 工具
+     * T075: 改为折叠方案，保留完整内容，长内容默认折叠
      */
     private renderReadFileTool(toolData: any): string {
         const fragments: string[] = [];
@@ -1374,9 +1420,35 @@ export class MarkdownRenderer implements IMarkdownRenderer {
             const language = this.detectLanguageFromFilePath(filePath) || 
                            this.detectLanguageFromContent(content);
             
-            fragments.push(`\`\`\`\`${language}`);
-            fragments.push(content);
-            fragments.push('````');
+            // T075: 折叠方案 - 显示内容长度，长内容用嵌套 details 折叠
+            const FOLD_THRESHOLD = 5000; // 超过此长度的内容默认折叠
+            const isLong = content.length > FOLD_THRESHOLD;
+            
+            // 显示内容长度信息
+            fragments.push(`**内容长度**: ${content.length.toLocaleString()} 字符`);
+            fragments.push('');
+            
+            if (isLong) {
+                // 长内容：预览 + 折叠的完整内容
+                const preview = content.substring(0, 500);
+                fragments.push(`\`\`\`${language}`);
+                fragments.push(preview);
+                fragments.push('...');
+                fragments.push('```');
+                fragments.push('');
+                fragments.push('<details class="lazy-content" data-content-type="file-content">');
+                fragments.push('<summary>📄 点击展开完整内容（' + content.length.toLocaleString() + ' 字符）</summary>');
+                fragments.push('');
+                fragments.push(`\`\`\`\`${language}`);
+                fragments.push(content);
+                fragments.push('````');
+                fragments.push('</details>');
+            } else {
+                // 短内容：直接显示
+                fragments.push(`\`\`\`\`${language}`);
+                fragments.push(content);
+                fragments.push('````');
+            }
         } else {
             fragments.push('*文件内容为空或无法读取*');
         }
@@ -2336,6 +2408,7 @@ export class MarkdownRenderer implements IMarkdownRenderer {
      * 根据工具名称路由到相应的渲染方法
      * T052: 改进工具名称匹配逻辑，支持大小写不敏感和部分匹配
      * T053: 添加调试日志，记录工具名称提取过程和匹配结果
+     * T074: 添加兜底截断逻辑，防止超大工具输出导致页面卡顿
      */
     private renderToolDetails(toolData: any): string {
         if (!toolData || !toolData.name) {
@@ -2346,113 +2419,129 @@ export class MarkdownRenderer implements IMarkdownRenderer {
         const toolName = toolData.name.toLowerCase();
         Logger.debug(`renderToolDetails: Processing tool "${toolData.name}" (normalized: "${toolName}")`);
         
+        // T074: 工具渲染结果最大字符数限制（兜底保护）
+        const MAX_TOOL_RENDER_CHARS = 50000;
+        let result = '';
+        
         try {
             // III. Agent 任务和流程控制工具
             if (this.matchesToolName(toolName, ['create_plan'])) {
                 Logger.debug(`renderToolDetails: Matched create plan tool, using renderCreatePlanTool`);
-                return this.renderCreatePlanTool(toolData);
+                result = this.renderCreatePlanTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['todo_write', 'manage_todo_list'])) {
+            else if (this.matchesToolName(toolName, ['todo_write', 'manage_todo_list'])) {
                 Logger.debug(`renderToolDetails: Matched todo tool, using renderTodoTool`);
-                return this.renderTodoTool(toolData);
+                result = this.renderTodoTool(toolData);
             }
             
             // I. 代码修改与编辑工具
-            if (this.matchesToolName(toolName, ['edit_file', 'multiedit', 'write', 'search_replace'])) {
+            else if (this.matchesToolName(toolName, ['edit_file', 'multiedit', 'write', 'search_replace'])) {
                 Logger.debug(`renderToolDetails: Matched edit tool, using renderEditFileTool`);
-                return this.renderEditFileTool(toolData);
+                result = this.renderEditFileTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['apply_patch'])) {
+            else if (this.matchesToolName(toolName, ['apply_patch'])) {
                 Logger.debug(`renderToolDetails: Matched patch tool, using renderApplyPatchTool`);
-                return this.renderApplyPatchTool(toolData);
+                result = this.renderApplyPatchTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['copilot_applypatch', 'copilot_insertedit'])) {
+            else if (this.matchesToolName(toolName, ['copilot_applypatch', 'copilot_insertedit'])) {
                 Logger.debug(`renderToolDetails: Matched copilot tool, using renderCopilotEditTool`);
-                return this.renderCopilotEditTool(toolData);
+                result = this.renderCopilotEditTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['delete_file'])) {
+            else if (this.matchesToolName(toolName, ['delete_file'])) {
                 Logger.debug(`renderToolDetails: Matched delete tool, using renderDeleteFileTool`);
-                return this.renderDeleteFileTool(toolData);
+                result = this.renderDeleteFileTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['edit_file_v2'])) {
+            else if (this.matchesToolName(toolName, ['edit_file_v2'])) {
                 Logger.debug(`renderToolDetails: Matched edit_file_v2 tool, using renderEditFileV2Tool`);
-                return this.renderEditFileV2Tool(toolData);
+                result = this.renderEditFileV2Tool(toolData);
             }
             
             // II. 代码和知识检索工具
-            if (this.matchesToolName(toolName, ['glob_file_search'])) {
+            else if (this.matchesToolName(toolName, ['glob_file_search'])) {
                 Logger.debug(`renderToolDetails: Matched glob file search tool, using renderGlobFileSearchTool`);
-                return this.renderGlobFileSearchTool(toolData);
+                result = this.renderGlobFileSearchTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['codebase_search', 'semantic_search_full'])) {
+            else if (this.matchesToolName(toolName, ['codebase_search', 'semantic_search_full'])) {
                 Logger.debug(`renderToolDetails: Matched codebase search tool, using renderCodebaseSearchTool`);
-                return this.renderCodebaseSearchTool(toolData);
+                result = this.renderCodebaseSearchTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['web_search'])) {
+            else if (this.matchesToolName(toolName, ['web_search'])) {
                 Logger.debug(`renderToolDetails: Matched web search tool, using renderWebSearchTool`);
-                return this.renderWebSearchTool(toolData);
+                result = this.renderWebSearchTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['web_fetch'])) {
+            else if (this.matchesToolName(toolName, ['web_fetch'])) {
                 Logger.debug(`renderToolDetails: Matched web fetch tool, using renderWebFetchTool`);
-                return this.renderWebFetchTool(toolData);
+                result = this.renderWebFetchTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['grep', 'ripgrep', 'ripgrep_raw_search'])) {
+            else if (this.matchesToolName(toolName, ['grep', 'ripgrep', 'ripgrep_raw_search'])) {
                 Logger.debug(`renderToolDetails: Matched grep tool, using renderGrepTool`);
-                return this.renderGrepTool(toolData);
+                result = this.renderGrepTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['fetch_pull_request'])) {
+            else if (this.matchesToolName(toolName, ['fetch_pull_request'])) {
                 Logger.debug(`renderToolDetails: Matched PR tool, using renderFetchPullRequestTool`);
-                return this.renderFetchPullRequestTool(toolData);
+                result = this.renderFetchPullRequestTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['read_lints'])) {
+            else if (this.matchesToolName(toolName, ['read_lints'])) {
                 Logger.debug(`renderToolDetails: Matched read lints tool, using renderReadLintsToolnew`);
-                return this.renderReadLintsToolnew(toolData);
+                result = this.renderReadLintsToolnew(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['read_file', 'read_file_v2', 'copilot_readfile'])) {
+            else if (this.matchesToolName(toolName, ['read_file', 'read_file_v2', 'copilot_readfile'])) {
                 Logger.debug(`renderToolDetails: Matched read file tool, using renderReadFileTool`);
-                return this.renderReadFileTool(toolData);
+                result = this.renderReadFileTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['list_dir'])) {
+            else if (this.matchesToolName(toolName, ['list_dir'])) {
                 Logger.debug(`renderToolDetails: Matched list dir tool, using renderListDirTool`);
-                return this.renderListDirTool(toolData);
+                result = this.renderListDirTool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['list_dir_v2'])) {
+            else if (this.matchesToolName(toolName, ['list_dir_v2'])) {
                 Logger.debug(`renderToolDetails: Matched list dir v2 tool, using renderListDirV2Tool`);
-                return this.renderListDirV2Tool(toolData);
+                result = this.renderListDirV2Tool(toolData);
             }
             
-            if (this.matchesToolName(toolName, ['run_terminal_cmd', 'run_terminal_command', 'run_terminal_command_v2'])) {
+            else if (this.matchesToolName(toolName, ['run_terminal_cmd', 'run_terminal_command', 'run_terminal_command_v2'])) {
                 Logger.debug(`renderToolDetails: Matched terminal command tool, using renderTerminalCommandTool`);
-                return this.renderTerminalCommandTool(toolData);
+                result = this.renderTerminalCommandTool(toolData);
             }
             
             // MCP 工具（以 mcp_ 开头）
-            if (toolName.startsWith('mcp_')) {
+            else if (toolName.startsWith('mcp_')) {
                 Logger.debug(`renderToolDetails: Matched MCP tool, using renderMcpTool`);
-                return this.renderMcpTool(toolData);
+                result = this.renderMcpTool(toolData);
             }
             
             // 默认：未知工具
-            Logger.debug(`renderToolDetails: No match found, using renderUnknownTool`);
-            return this.renderUnknownTool(toolData);
+            else {
+                Logger.debug(`renderToolDetails: No match found, using renderUnknownTool`);
+                result = this.renderUnknownTool(toolData);
+            }
         } catch (error) {
             Logger.warn(`Failed to render tool details for ${toolName}: ${error instanceof Error ? error.message : String(error)}`);
-            return this.renderUnknownTool(toolData);
+            result = this.renderUnknownTool(toolData);
         }
+        
+        // T075: 兜底折叠检查 - 如果渲染结果超过限制，添加折叠提示（但保留完整内容）
+        // 注意：这里不再截断，而是添加警告信息，实际折叠由 sharePage.ts 处理
+        if (result.length > MAX_TOOL_RENDER_CHARS) {
+            Logger.warn(`renderToolDetails: Tool "${toolName}" output is large: ${result.length} chars`);
+            // 在结果开头添加警告信息
+            result = `> ℹ️ 此工具输出较长（${result.length.toLocaleString()} 字符），建议折叠查看\n\n` + result;
+        }
+        
+        return result;
     }
 }
 

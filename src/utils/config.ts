@@ -15,7 +15,7 @@ interface EnvConfig {
  * 读取和管理 VS Code 配置
  */
 export class Config {
-    private static readonly CONFIG_SECTION = 'cursor-assistant';
+    private static readonly CONFIG_SECTION = 'cursor-session-helper';
     private static envConfig: EnvConfig | null = null;
     
     /**

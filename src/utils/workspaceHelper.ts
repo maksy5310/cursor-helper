@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as os from 'os';
 import { Logger } from './logger';
 import { CursorDataLocator } from './cursorDataLocator';
 
@@ -266,5 +267,31 @@ export class WorkspaceHelper {
             Logger.error('Failed to get workspace info', error as Error);
             return null;
         }
+    }
+
+    /**
+     * 获取系统用户名作为默认昵称
+     * 优先使用 os.userInfo()，失败时回退到环境变量
+     * @returns 系统用户名或默认值 "本地用户"
+     */
+    static getSystemUsername(): string {
+        try {
+            // 优先使用 os.userInfo() - 跨平台
+            const userInfo = os.userInfo();
+            if (userInfo.username && userInfo.username.trim().length > 0) {
+                return userInfo.username;
+            }
+        } catch {
+            // os.userInfo() 可能在某些环境下失败
+        }
+
+        // 回退到环境变量
+        const envUsername = process.env.USERNAME || process.env.USER || process.env.LOGNAME;
+        if (envUsername && envUsername.trim().length > 0) {
+            return envUsername;
+        }
+
+        // 最终回退
+        return '本地用户';
     }
 }
