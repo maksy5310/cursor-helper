@@ -95,7 +95,7 @@ export function renderSharePage(record: ShareRecord, allShares: ShareMetadata[])
     // T075: 改为懒加载方案，不再截断内容
     // 超长消息使用分段渲染：先渲染预览，点击后加载完整内容
     const LAZY_LOAD_THRESHOLD = 100000; // 超过此长度启用懒加载
-    const PREVIEW_LENGTH = 10000; // 预览长度
+    const PREVIEW_LENGTH = 10000; // 预览目标长度
 
     const messageCards = messages.map((msg, idx) => {
         const isMeta = msg.role === 'meta';
@@ -109,7 +109,9 @@ export function renderSharePage(record: ShareRecord, allShares: ShareMetadata[])
         try {
             if (isLongContent) {
                 // T075: 懒加载方案 - 先显示预览，保留完整内容在隐藏区域
-                const previewContent = safeContent.substring(0, PREVIEW_LENGTH);
+                // A方案：智能截断 - 在代码块/段落边界处截断，避免切断代码块中间
+                const cutPoint = findSmartCutPoint(safeContent, PREVIEW_LENGTH);
+                const previewContent = safeContent.substring(0, cutPoint);
                 const previewParsed = marked.parse(previewContent) as string;
                 const previewHtml = balanceHtml(previewParsed);
                 
@@ -121,7 +123,7 @@ export function renderSharePage(record: ShareRecord, allShares: ShareMetadata[])
                     <div class="preview-content" id="preview-${idx}">${previewHtml}</div>
                     <div class="lazy-load-notice" style="padding:12px;background:#e3f2fd;border:1px solid #2196f3;border-radius:6px;margin-top:12px;color:#1565c0;font-size:13px;">
                         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-                            <span>📄 内容较长（${msg.content.length.toLocaleString()} 字符），已显示前 ${PREVIEW_LENGTH.toLocaleString()} 字符预览</span>
+                            <span>📄 内容较长（${msg.content.length.toLocaleString()} 字符），已显示前 ${cutPoint.toLocaleString()} 字符预览</span>
                             <button class="load-full-btn" onclick="loadFullContent(${idx})" style="padding:6px 12px;background:#2196f3;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;">
                                 📖 加载完整内容
                             </button>
@@ -253,6 +255,10 @@ export function renderSharePage(record: ShareRecord, allShares: ShareMetadata[])
                     <strong>格式:</strong> ${escapeHtml(meta.contentFormat)} &nbsp;|&nbsp;
                     <strong>创建:</strong> ${createDate}
                 </div>
+                ${meta.description ? `<div class="session-summary">
+                    <strong>📋 会话概括:</strong>
+                    <div class="summary-text">${escapeHtml(meta.description).replace(/\n/g, '<br>')}</div>
+                </div>` : ''}
                 <h3 style="margin:18px 0 14px;color:#1a2332;font-size:16px;">内容:</h3>
                 <div class="messages-list">
                     ${messageCards || '<div class="message-content">' + fallbackContent + '</div>'}
@@ -334,8 +340,53 @@ export function renderSharePage(record: ShareRecord, allShares: ShareMetadata[])
 
             bodies.forEach(function(body) {
                 var idx = body.id.replace('msgBody-', '');
+                var card = body.closest('.message-card');
                 var toggleBar = document.getElementById('msgToggle-' + idx);
+
+                // 检查 toggleBar 是否在正确的 message-card 内
+                // 如果 toggleBar 存在但不在 card 内（孤立DOM，来自消息内容中的模板代码泄漏），
+                // 则需要在 card 内动态创建一个新的 toggleBar
+                if (toggleBar && card && !card.contains(toggleBar)) {
+                    toggleBar = null; // 标记为不存在，后面会重新创建
+                }
+                // 如果原始 bar 不可用，先检查是否已存在动态创建的 bar
+                if (!toggleBar && card) {
+                    var existingDynBar = card.querySelector('.msg-toggle-bar[data-msg-idx="' + idx + '"]');
+                    if (existingDynBar) toggleBar = existingDynBar;
+                }
+                if (!toggleBar && card && body.scrollHeight > MSG_COLLAPSE_HEIGHT) {
+                    // 动态创建 toggle bar（替代被泄漏的孤立元素）
+                    var newBar = document.createElement('div');
+                    newBar.className = 'msg-toggle-bar';
+                    newBar.setAttribute('data-msg-idx', idx);
+                    newBar.innerHTML = '<button class="msg-toggle-btn" onclick="toggleMsgByBody(this)"><span class="arrow">▼</span> 展开全部</button>';
+                    // 插入到 body 的父节点中（body 之后）
+                    var bodyParent = body.parentNode;
+                    if (bodyParent && body.nextSibling) {
+                        bodyParent.insertBefore(newBar, body.nextSibling);
+                    } else if (bodyParent) {
+                        bodyParent.appendChild(newBar);
+                    }
+                    toggleBar = newBar;
+                }
                 if (!toggleBar) return;
+
+                // 对于包含懒加载通知的消息，智能处理：
+                // - 预览内容高度 > MSG_COLLAPSE_HEIGHT → 折叠预览 + 展开全部按钮
+                // - 预览内容高度 <= MSG_COLLAPSE_HEIGHT → 不折叠（直接显示预览和加载按钮）
+                var hasLazyNotice = body.querySelector('.lazy-load-notice');
+                if (hasLazyNotice) {
+                    if (body.scrollHeight > 0 && body.scrollHeight <= MSG_COLLAPSE_HEIGHT) {
+                        // 预览内容短：不折叠，隐藏展开按钮
+                        body.classList.remove('collapsed');
+                        toggleBar.style.display = 'none';
+                    } else {
+                        // 预览内容长：折叠并显示展开按钮
+                        body.classList.add('collapsed');
+                        toggleBar.style.display = '';
+                    }
+                    return;
+                }
 
                 // scrollHeight > 0 说明浏览器已完成该元素的布局
                 if (body.scrollHeight > 0 && body.scrollHeight <= MSG_COLLAPSE_HEIGHT) {
@@ -350,12 +401,54 @@ export function renderSharePage(record: ShareRecord, allShares: ShareMetadata[])
             });
 
             collapseInitDone = true;
+
+            // 清理：隐藏所有不在 .message-card 内部的孤立 msg-toggle-bar
+            // 这些可能是消息内容中引用的模板代码被浏览器渲染为真实 DOM
+            var allBars = document.querySelectorAll('.msg-toggle-bar');
+            allBars.forEach(function(bar) {
+                if (!bar.closest('.message-card')) {
+                    bar.style.display = 'none';
+                }
+            });
         }
 
         function toggleMsg(idx) {
             var body = document.getElementById('msgBody-' + idx);
             var btn = document.querySelector('#msgToggle-' + idx + ' .msg-toggle-btn');
+            if (!body || !btn) {
+                // 可能是动态创建的 toggle bar（使用 data-msg-idx）
+                var dynBar = document.querySelector('.msg-toggle-bar[data-msg-idx="' + idx + '"]');
+                if (dynBar) {
+                    btn = dynBar.querySelector('.msg-toggle-btn');
+                    body = document.getElementById('msgBody-' + idx);
+                }
+            }
             if (!body || !btn) return;
+            doToggle(body, btn);
+        }
+
+        // 通过按钮元素找到关联的 message-body 来切换折叠
+        // 用于动态创建的 toggle bar（孤立DOM替代方案）
+        function toggleMsgByBody(btnEl) {
+            var bar = btnEl.closest('.msg-toggle-bar');
+            if (!bar) return;
+            var idx = bar.getAttribute('data-msg-idx');
+            if (idx) {
+                var body = document.getElementById('msgBody-' + idx);
+                if (body) {
+                    doToggle(body, btnEl);
+                    return;
+                }
+            }
+            // 回退：在同一 card 中找 message-body
+            var card = bar.closest('.message-card');
+            if (!card) return;
+            var body = card.querySelector('.message-body');
+            if (!body) return;
+            doToggle(body, btnEl);
+        }
+
+        function doToggle(body, btn) {
             if (body.classList.contains('collapsed')) {
                 body.classList.remove('collapsed');
                 body.classList.add('expanded');
@@ -613,9 +706,24 @@ function balanceHtml(html: string): string {
     
     // 安全处理：将消息内容中的 <script> / </script> 标签无害化
     // 避免浏览器将消息中引用的代码片段当作真实的脚本执行或破坏页面结构
-    // 使用零宽字符分隔法：<scr + ipt → 不会被解析器识别为标签
     balanced = balanced.replace(/<script(\s|>)/gi, '&lt;script$1');
     balanced = balanced.replace(/<\/script>/gi, '&lt;/script&gt;');
+
+    // 安全处理：将内容中出现的页面模板专用 HTML 元素完全转义
+    // 避免消息引用 sharePage.ts 源代码中的 HTML 片段被浏览器渲染为真实 DOM
+    // 这些模式在代码块内也可能因为 Markdown 解析器的特殊处理而"泄漏"
+    const templateClassPatterns = ['msg-toggle-bar', 'msg-toggle-btn', 'message-card', 'message-content', 'load-full-btn', 'lazy-load-notice', 'preview-content', 'full-content'];
+    for (const cls of templateClassPatterns) {
+        // 匹配包含这些 class 或 id 的标签元素，无论开标签还是闭标签
+        const openRegex = new RegExp(`<([a-zA-Z]+)(\\s[^>]*(?:class|id)\\s*=\\s*"[^"]*${cls}[^"]*"[^>]*)>`, 'gi');
+        balanced = balanced.replace(openRegex, (m) => {
+            return m.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        });
+    }
+    // 额外处理：将带有 onclick="toggleMsg(...)" 或 onclick="loadFullContent(...)" 的按钮转义
+    balanced = balanced.replace(/<button[^>]*onclick\s*=\s*"(?:toggleMsg|loadFullContent)\([^)]*\)"[^>]*>[\s\S]*?<\/button>/gi, (m) => {
+        return m.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    });
 
     return balanced;
 }
@@ -627,6 +735,74 @@ function balanceHtml(html: string): string {
  * 处理项：
  * 1. ${...} 模板字符串语法 → &#36;{...} 避免与 Markdown 链接语法冲突
  */
+/**
+ * 智能截断：在目标长度附近找到合适的截断位置
+ * 优先在代码块闭合边界（```）或段落分隔（空行）处截断，
+ * 避免切断代码块中间导致 Markdown 解析异常
+ */
+function findSmartCutPoint(content: string, targetLength: number): number {
+    if (content.length <= targetLength) {
+        return content.length;
+    }
+
+    // 搜索范围：targetLength 的 80% ~ 120%
+    const searchStart = Math.floor(targetLength * 0.8);
+    const searchEnd = Math.min(Math.floor(targetLength * 1.2), content.length);
+    const searchZone = content.substring(searchStart, searchEnd);
+
+    // 优先级 1：找到最近的代码块闭合边界（```后的换行）
+    const codeBlockEndPattern = /```\s*\n/g;
+    let bestPos = -1;
+    let match: RegExpExecArray | null;
+    while ((match = codeBlockEndPattern.exec(searchZone)) !== null) {
+        bestPos = searchStart + match.index + match[0].length;
+    }
+    // 取最后一个匹配（离 targetLength 最近的向后方向）
+    if (bestPos > 0) {
+        // 确认截断位置之前代码块是闭合的（``` 出现偶数次）
+        const prefix = content.substring(0, bestPos);
+        const backtickCount = (prefix.match(/```/g) || []).length;
+        if (backtickCount % 2 === 0) {
+            return bestPos;
+        }
+    }
+
+    // 优先级 2：找到段落分隔（连续两个换行）
+    const paragraphBreak = /\n\s*\n/g;
+    let lastParagraphPos = -1;
+    while ((match = paragraphBreak.exec(searchZone)) !== null) {
+        lastParagraphPos = searchStart + match.index + match[0].length;
+    }
+    if (lastParagraphPos > 0) {
+        // 也检查代码块是否闭合
+        const prefix = content.substring(0, lastParagraphPos);
+        const backtickCount = (prefix.match(/```/g) || []).length;
+        if (backtickCount % 2 === 0) {
+            return lastParagraphPos;
+        }
+    }
+
+    // 优先级 3：如果截断位置在未闭合的代码块中，向前找到该代码块的开头
+    const prefix = content.substring(0, targetLength);
+    const backtickCount = (prefix.match(/```/g) || []).length;
+    if (backtickCount % 2 !== 0) {
+        // 在未闭合的代码块内，向前找到最近的 ``` 开头位置
+        const lastOpening = prefix.lastIndexOf('```');
+        if (lastOpening > 0) {
+            // 在代码块开头之前截断
+            return lastOpening;
+        }
+    }
+
+    // 兜底：在 targetLength 处的最近换行位置截断
+    const nearNewline = content.lastIndexOf('\n', targetLength);
+    if (nearNewline > searchStart) {
+        return nearNewline + 1;
+    }
+
+    return targetLength;
+}
+
 function sanitizeForMarkdown(content: string): string {
     // 分割内容为代码块和非代码块部分
     // 匹配 ```...``` 代码块（可能跨行）
@@ -659,11 +835,9 @@ function sanitizeNonCodeContent(text: string): string {
     // &#36; = $ 的 HTML 实体
     result = result.replace(/\$\{/g, '&#36;{');
     
-    // 2. 转义不在 inline code (单反引号) 中的裸 HTML 标签
-    // 这些标签如果不在代码块/inline code 中，会被 marked 直接输出为真实 DOM
-    // 特别是当对话内容引用了源代码文本时，会破坏页面布局
-    // 策略：将 <tag 转义为 &lt;tag（仅针对已知会造成布局破坏的标签）
-    // 需要排除已在 inline code 中的部分
+    // 2. B方案改进：将不在 inline code 中的裸 HTML 标签转义为安全格式
+    // 使用 HTML 实体转义（&lt; &gt;）确保标签不会被浏览器渲染为真实 DOM
+    // 同时用特殊 HTML 包裹使转义后的标签看起来像代码（等宽字体+灰色背景）
     const dangerousTags = ['div', 'span', 'button', 'form', 'input', 'select', 'textarea', 'iframe', 'embed', 'object', 'style', 'link', 'meta', 'head', 'body', 'html'];
     const dangerPattern = new RegExp(`<(\\/?)\\s*(${dangerousTags.join('|')})(\\s|>|\\/)`, 'gi');
     

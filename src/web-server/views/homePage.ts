@@ -7,8 +7,13 @@ import { ShareMetadata } from '../../services/localShareService';
 export function renderHomePage(shares: ShareMetadata[], keyword: string): string {
     const shareCards = shares.map(share => {
         const shareDate = new Date(share.shareTime).toLocaleString('zh-CN');
+        // 显示描述/摘要（如果存在），截取前80个字符
+        const descHtml = share.description
+            ? `<div class="share-card-desc">${escapeHtml(share.description.split('\n')[0].substring(0, 80))}${share.description.split('\n')[0].length > 80 ? '...' : ''}</div>`
+            : '';
         return `<a class="share-card" href="/share/${share.uuid}" data-uuid="${share.uuid}" data-title="${escapeHtml(share.title)}" oncontextmenu="showContextMenu(event, '${share.uuid}', '${escapeHtml(share.title).replace(/'/g, "\\'")}')">
                 <div class="share-card-title">📄 ${escapeHtml(share.title)}</div>
+                ${descHtml}
                 <div class="share-card-meta">
                     <span>工程: ${escapeHtml(share.projectName)}</span>
                     <span>分享人: ${escapeHtml(share.sharer)}</span>

@@ -425,6 +425,27 @@ export function renderLayout(title: string, content: string, version: string = '
         }
         .meta-info strong { color: #333; }
 
+        /* 会话概括摘要 */
+        .session-summary {
+            margin: 12px 0;
+            padding: 10px 14px;
+            background: #f0f7ff;
+            border: 1px solid #d0e2f5;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .session-summary strong {
+            color: #0366d6;
+            margin-right: 6px;
+        }
+        .summary-text {
+            margin-top: 4px;
+            color: #444;
+            white-space: pre-wrap;
+        }
+
         /* ========== 消息卡片 (REQ 4.5) — 严格单列垂直，防止重叠 ========== */
         .messages-list {
             display: flex !important;
@@ -587,14 +608,15 @@ export function renderLayout(title: string, content: string, version: string = '
             overflow-x: auto;
         }
         .message-content pre {
-            background: #1e1e2e;
-            color: #cdd6f4;
+            background: #f5f5f5;
+            color: #333333;
             padding: 12px;
             border-radius: 6px;
             overflow-x: auto;
             font-size: 13px;
             line-height: 1.5;
             margin: 8px 0;
+            border: 1px solid #e0e0e0;
         }
         .message-content code {
             background: #e8ecf0;
@@ -602,7 +624,7 @@ export function renderLayout(title: string, content: string, version: string = '
             border-radius: 3px;
             font-size: 13px;
         }
-        .message-content pre code { background: none; padding: 0; }
+        .message-content pre code { background: none; padding: 0; color: inherit; }
         .message-content ul, .message-content ol { padding-left: 22px; margin: 6px 0; }
         .message-content li { margin: 3px 0; }
         .message-content a { color: #4a90d9; word-break: break-all; }
@@ -647,7 +669,7 @@ export function renderLayout(title: string, content: string, version: string = '
             padding: 8px 12px;
             font-weight: 600;
             font-size: 13px;
-            color: #1a2332;
+            color: #0366d6;
             cursor: pointer;
             background: #f0f4f8;
             border-bottom: 1px solid #e0e4e8;
@@ -658,7 +680,7 @@ export function renderLayout(title: string, content: string, version: string = '
         .message-content summary::before {
             content: '▶ ';
             font-size: 10px;
-            color: #888;
+            color: #0366d6;
             margin-right: 4px;
         }
         .message-content details[open] > summary::before { content: '▼ '; }
@@ -718,6 +740,15 @@ export function renderLayout(title: string, content: string, version: string = '
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+        .share-card-desc {
+            font-size: 12px;
+            color: #555;
+            margin-bottom: 4px;
+            line-height: 1.4;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .share-card-meta { font-size: 12px; color: #888; }
         .share-card-meta span { margin-right: 10px; }

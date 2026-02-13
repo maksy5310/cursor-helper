@@ -10,6 +10,41 @@
 
 ---
 
+## [1.0.26] - 2026-02-13
+
+### Added
+- 📋 会话概括摘要功能（A+B 组合方案）
+  - 新增 `SessionSummarizer` 模块，基于规则自动提取会话摘要（对话轮次、涉及文件、工具使用统计、主题提取）
+  - 导出会话时，"描述/备注"输入框自动预填充生成的摘要，用户可自由编辑
+  - 首页卡片显示摘要第一行（截取前 80 字符）
+  - 详情页元信息下方显示"📋 会话概括"蓝色背景区块
+- 🧪 新增 `sessionSummarizer.test.ts` 单元测试（15 个测试用例）
+
+### Changed
+- 折叠区域（`details/summary`）标题文字和箭头颜色从深黑色/灰色调整为 `#0366d6`（蓝色）
+- 代码块（`<pre>`）样式从深暗色主题改为浅色主题：
+  - 背景：`#1e1e2e`（深暗色）→ `#f5f5f5`（浅灰色）
+  - 文字：`#cdd6f4`（浅灰白）→ `#333333`（黑色）
+  - 新增浅灰边框 `#e0e0e0`
+- 单元测试总数从 78 个增加到 93 个
+
+### Fixed
+- 修复懒加载消息预览内容过长时缺少折叠/展开按钮的问题
+  - 预览高度 > 400px 的懒加载消息现在也会被折叠并显示"展开全部"按钮
+- 修复消息内容中模板代码泄漏导致 toggle bar DOM 被抢占的问题
+  - 新增孤立 DOM 检测机制和动态 toggle bar 创建
+  - 新增 `toggleMsgByBody()` 和 `doToggle()` 辅助函数
+  - 防止 `initCollapse()` 多次调用时重复创建动态按钮
+
+### Technical
+- 新增 `src/utils/sessionSummarizer.ts` - 会话摘要生成模块
+- 修改 `src/commands/shareSession.ts` - 集成自动摘要生成
+- 修改 `src/web-server/views/homePage.ts` - 首页卡片展示摘要
+- 修改 `src/web-server/views/sharePage.ts` - 详情页展示摘要、智能折叠懒加载消息、动态 toggle bar 创建
+- 修改 `src/web-server/views/layout.ts` - 代码块浅色主题、新增 `.share-card-desc`、`.session-summary` CSS 样式
+
+---
+
 ## [1.0.25] - 2026-02-13
 
 ### Added

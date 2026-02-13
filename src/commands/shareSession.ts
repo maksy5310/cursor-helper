@@ -10,6 +10,7 @@ import { WebServerManager } from '../web-server/serverManager';
 import { MarkdownRenderer } from '../ui/markdownRenderer';
 import { Logger } from '../utils/logger';
 import { WorkspaceHelper } from '../utils/workspaceHelper';
+import { SessionSummarizer } from '../utils/sessionSummarizer';
 
 export async function shareSessionCommand(
     context: vscode.ExtensionContext,
@@ -71,18 +72,28 @@ export async function shareSessionCommand(
         });
         if (project === undefined) { return; }
 
-        const description = await vscode.window.showInputBox({
-            prompt: '描述/备注（可选）',
-            placeHolder: '可选填写'
-        });
-
-        // 加载会话内容
+        // 加载会话内容（提前加载以生成摘要）
         const renderer = new MarkdownRenderer();
         const records = await databaseAccess.getAgentRecords(composerId!);
         if (!records || records.length === 0) {
             vscode.window.showErrorMessage('未找到会话记录');
             return;
         }
+
+        // 自动生成会话摘要作为描述默认值
+        let autoSummary = '';
+        try {
+            const summary = SessionSummarizer.generateSummary(records);
+            autoSummary = summary.text;
+        } catch (err) {
+            Logger.warn(`Failed to generate session summary: ${err instanceof Error ? err.message : String(err)}`);
+        }
+
+        const description = await vscode.window.showInputBox({
+            prompt: '会话概括/描述（可编辑，已自动生成）',
+            value: autoSummary,
+            placeHolder: '可选填写会话概括描述'
+        });
 
         const markdownParts: string[] = [];
         for (const record of records) {
