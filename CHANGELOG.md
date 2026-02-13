@@ -10,6 +10,20 @@
 
 ---
 
+## [1.0.31] - 2026-02-13
+
+### Added
+- **图标风格配置化**：新增 `cursorSessionHelper.iconStyle` 配置项，支持 3 套图标风格：
+  - `outline`（线条轮廓风格，默认）：简洁统一的线条图标
+  - `filled`（填充风格）：色彩丰富的填充图标
+  - `semantic`（语义风格）：按功能语义选择图标
+
+### Fixed
+- **修复"存储"图标对齐问题**：将 folder 图标替换为 database 图标，避免 folder 类图标内置边距导致的缩进偏移
+- **存储路径优化显示**：description 使用 `~` 替代用户主目录前缀（如 `~/.cursor-session-helper/shares`），完整路径在 tooltip 悬停显示
+
+---
+
 ## [1.0.29] - 2026-02-13
 
 ### Changed

@@ -4,7 +4,7 @@
   "displayName": "Cursor Session Helper",
   "description": "支持提示词分享、提示词搜索、提示词收藏、提示词导出等功能",
   "icon": "resources/icon.png",
-  "version": "1.0.29",
+  "version": "1.0.31",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -113,6 +113,17 @@
           "type": "string",
           "default": "",
           "description": "分享链接的基础 URL。为空时默认使用 http://localhost:{端口}。可设置为其他地址如 http://192.168.1.100:8080"
+        },
+        "cursorSessionHelper.iconStyle": {
+          "type": "string",
+          "enum": ["outline", "filled", "semantic"],
+          "enumDescriptions": [
+            "线条轮廓风格：简洁统一的线条图标",
+            "填充风格：色彩丰富的填充图标",
+            "语义风格：按功能语义选择图标"
+          ],
+          "default": "outline",
+          "description": "基本信息面板的图标风格"
         }
       }
     },
