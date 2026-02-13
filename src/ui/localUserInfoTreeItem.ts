@@ -70,7 +70,7 @@ export class LocalUserInfoTreeDataProvider implements vscode.TreeDataProvider<Us
         // 用户昵称项
         const avatarUri = this.getAvatarUri(avatarSetting);
         items.push(new UserInfoItem(
-            '用户',
+            '用户:',
             nickname,
             vscode.TreeItemCollapsibleState.None,
             avatarUri || new vscode.ThemeIcon('account')
@@ -106,8 +106,8 @@ export class LocalUserInfoTreeDataProvider implements vscode.TreeDataProvider<Us
 
         // 打开 WebUI 按钮
         items.push(new UserInfoItem(
-            '打开 WebUI',
-            isRunning ? `localhost:${port}` : '',
+            '打开 WebUI:',
+            isRunning ? `http://localhost:${port}/` : '未运行',
             vscode.TreeItemCollapsibleState.None,
             new vscode.ThemeIcon('globe'),
             {
@@ -116,7 +116,7 @@ export class LocalUserInfoTreeDataProvider implements vscode.TreeDataProvider<Us
             }
         ));
 
-        // 存储目录项 — 始终显示实际路径
+        // 存储目录项 — 始终显示实际路径，点击可打开文件夹
         const defaultDir = path.join(require('os').homedir(), '.cursor-session-helper', 'shares');
         const actualDir = shareDir || defaultDir;
         items.push(new UserInfoItem(
@@ -124,12 +124,14 @@ export class LocalUserInfoTreeDataProvider implements vscode.TreeDataProvider<Us
             actualDir,
             vscode.TreeItemCollapsibleState.None,
             new vscode.ThemeIcon('folder'),
-            undefined,
-            undefined
+            {
+                command: 'cursor-session-helper.openShareFolder',
+                title: '打开存储文件夹'
+            }
         ));
         // tooltip 显示完整路径（鼠标悬停可见）
         const lastItem = items[items.length - 1];
-        lastItem.tooltip = actualDir;
+        lastItem.tooltip = `点击打开文件夹: ${actualDir}`;
 
         return Promise.resolve(items);
     }

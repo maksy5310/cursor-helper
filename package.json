@@ -4,7 +4,7 @@
   "displayName": "Cursor Session Helper",
   "description": "支持提示词分享、提示词搜索、提示词收藏、提示词导出等功能",
   "icon": "resources/icon.png",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -63,6 +63,12 @@
         "title": "打开 WebUI 页面",
         "category": "Cursor Session Helper",
         "icon": "$(globe)"
+      },
+      {
+        "command": "cursor-session-helper.openShareFolder",
+        "title": "打开存储文件夹",
+        "category": "Cursor Session Helper",
+        "icon": "$(folder-opened)"
       },
       {
         "command": "cursor-session-helper.diagnoseWorkspace",

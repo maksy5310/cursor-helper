@@ -7,7 +7,7 @@
 <h3 align="center">一键提取 Cursor AI 对话记录，本地分享你的编程灵感</h3>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.28-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.0.29-blue" alt="Version">
   <img src="https://img.shields.io/badge/Cursor-Compatible-blue" alt="Cursor Compatible">
   <img src="https://img.shields.io/badge/VS%20Code-Compatible-blue" alt="VS Code Compatible">
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License">

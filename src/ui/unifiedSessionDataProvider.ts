@@ -31,15 +31,24 @@ export class UnifiedSessionDataProvider implements vscode.TreeDataProvider<Sessi
     }
 
     getTreeItem(element: SessionListItem): vscode.TreeItem {
+        // 添加序号前缀
+        const idx = this.sessions.indexOf(element);
+        const num = idx >= 0 ? idx + 1 : 0;
+        const displayName = element.name || `Session ${element.composerId.substring(0, 8)}`;
         const treeItem = new vscode.TreeItem(
-            element.name || `Session ${element.composerId.substring(0, 8)}`,
+            `${num}. ${displayName}`,
             vscode.TreeItemCollapsibleState.None
         );
 
         const lastUpdated = new Date(element.lastUpdatedAt);
-        treeItem.tooltip = `Session: ${element.name}\nType: ${element.unifiedMode}\nLast Updated: ${lastUpdated.toLocaleString()}`;
+        treeItem.tooltip = `Session: ${displayName}\nType: ${element.unifiedMode}\nLast Updated: ${lastUpdated.toLocaleString()}`;
         treeItem.description = lastUpdated.toLocaleDateString();
         treeItem.contextValue = 'session';
+
+        // 根据会话类型设置不同图标
+        treeItem.iconPath = element.unifiedMode === 'agent'
+            ? new vscode.ThemeIcon('robot')
+            : new vscode.ThemeIcon('comment-discussion');
 
         return treeItem;
     }

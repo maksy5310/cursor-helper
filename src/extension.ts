@@ -226,6 +226,27 @@ async function doActivate(context: vscode.ExtensionContext): Promise<void> {
     );
     context.subscriptions.push(openWebUICmd);
 
+    // 注册命令：打开存储文件夹
+    const openShareFolderCmd = vscode.commands.registerCommand(
+        'cursor-session-helper.openShareFolder',
+        async () => {
+            const config = vscode.workspace.getConfiguration('cursorSessionHelper');
+            const shareDir = config.get<string>('shareDirectory', '');
+            const defaultDir = require('path').join(require('os').homedir(), '.cursor-session-helper', 'shares');
+            const actualDir = shareDir || defaultDir;
+            
+            // 确保目录存在
+            const fs = require('fs');
+            if (!fs.existsSync(actualDir)) {
+                fs.mkdirSync(actualDir, { recursive: true });
+            }
+            
+            // 用系统文件管理器打开文件夹
+            vscode.env.openExternal(vscode.Uri.file(actualDir));
+        }
+    );
+    context.subscriptions.push(openShareFolderCmd);
+
     // 注册命令：诊断工作空间
     const diagnoseWorkspaceCmd = vscode.commands.registerCommand(
         'cursor-session-helper.diagnoseWorkspace',

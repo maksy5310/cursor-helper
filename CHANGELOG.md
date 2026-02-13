@@ -10,6 +10,31 @@
 
 ---
 
+## [1.0.29] - 2026-02-13
+
+### Changed
+- 🎨 "基本信息"面板 UI 优化
+  - "用户" → "用户:" — 保持与"服务器:"、"存储:"一致的命名风格
+  - "打开 WebUI" → "打开 WebUI:" — 右侧显示完整 URL（如 `http://localhost:8080/`），服务器未运行时显示"未运行"
+  - "存储:"项添加点击打开文件夹功能 — 用系统文件管理器打开存储目录
+- 📋 Sessions 面板会话列表 UI 优化
+  - 添加数字序号前缀（如 `1. 会话名`）
+  - 添加会话类型图标 — agent 类型显示 🤖 robot 图标，chat 类型显示 💬 comment-discussion 图标
+
+### Technical
+- 新增 `cursor-session-helper.openShareFolder` 命令 — 打开存储目录
+- 修改 `src/ui/localUserInfoTreeItem.ts` — 标签命名规范化、存储项点击命令
+- 修改 `src/ui/unifiedSessionDataProvider.ts` — 序号前缀和类型图标
+
+---
+
+## [1.0.28] - 2026-02-13
+
+### Changed
+- 版本升级打包
+
+---
+
 ## [1.0.27] - 2026-02-13
 
 ### Fixed
